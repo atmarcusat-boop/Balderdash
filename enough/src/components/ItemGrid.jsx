@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { SECTION_BY_ID } from '../data/items'
 import { dateKey } from '../lib/date'
 import { useApp } from '../context/AppContext'
@@ -9,17 +8,6 @@ export default function ItemGrid({ item, months }) {
   const { checkins } = useApp()
   const section = SECTION_BY_ID[item.section]
   const Icon = item.icon
-
-  const filledCount = useMemo(() => {
-    let count = 0
-    months.forEach((month) =>
-      month.days.forEach(({ date, future }) => {
-        if (future) return
-        if (checkins[dateKey(date)]?.[item.id]) count += 1
-      }),
-    )
-    return count
-  }, [months, checkins, item.id])
 
   return (
     <div className="item-grid-block">
@@ -56,8 +44,6 @@ export default function ItemGrid({ item, months }) {
           </div>
         ))}
       </div>
-
-      {filledCount === 0 && <p className="item-grid-note">Room for attention here.</p>}
     </div>
   )
 }
