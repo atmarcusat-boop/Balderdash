@@ -81,6 +81,7 @@ export default function SwipeCard({ item, onDecide, interactive = true }) {
           <span className="section-tag">{section.name}</span>
           <h2 className="item-name">{item.name}</h2>
           <p className="item-question">{item.front}</p>
+          {item.example && <p className="item-example">{item.example}</p>}
           <span className="flip-hint">tap to read more</span>
         </div>
 
