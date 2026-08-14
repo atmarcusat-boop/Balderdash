@@ -24,11 +24,6 @@ export function startOfDay(date) {
   return copy
 }
 
-// Monday-based week start (0 = Monday ... 6 = Sunday)
-export function mondayIndex(date) {
-  return (date.getDay() + 6) % 7
-}
-
 export const MONTH_LABELS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',

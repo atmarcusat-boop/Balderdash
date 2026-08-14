@@ -1,39 +1,33 @@
-import { addDays, mondayIndex, startOfDay, MONTH_LABELS } from './date'
+import { MONTH_LABELS, startOfDay } from './date'
 
-// Builds a list of weeks (Mon -> Sun) covering the last `days` days, padded
-// out to full weeks so the grid lines up cleanly. Each week is an array of
-// 7 Date objects; dates after today are marked so they can render as blank
-// spacers rather than data.
-export function buildWeeks(days = 90) {
+// Builds the last `count` calendar months (current month first, going
+// backward), each with every day in that month so a whole month renders
+// as one full-width row. Days after today are marked `future` so they
+// render as blank rather than data. Short months (28-30 days) just end
+// early — callers pad to a fixed 31-column grid so every row still lines
+// up on the same day-of-month.
+export function buildMonths(count = 3) {
   const today = startOfDay(new Date())
-  const rangeStart = addDays(today, -(days - 1))
-  const gridStart = addDays(rangeStart, -mondayIndex(rangeStart))
+  const months = []
 
-  const weeks = []
-  let cursor = gridStart
-  while (cursor <= today) {
-    const week = []
-    for (let d = 0; d < 7; d += 1) {
-      const date = addDays(cursor, d)
-      week.push({ date, future: date > today })
+  for (let i = 0; i < count; i += 1) {
+    const year = today.getFullYear()
+    const month = today.getMonth() - i
+    const first = new Date(year, month, 1)
+    const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()
+
+    const days = []
+    for (let d = 1; d <= daysInMonth; d += 1) {
+      const date = new Date(first.getFullYear(), first.getMonth(), d)
+      days.push({ date, future: date > today })
     }
-    weeks.push(week)
-    cursor = addDays(cursor, 7)
+
+    months.push({
+      key: `${first.getFullYear()}-${first.getMonth()}`,
+      label: MONTH_LABELS[first.getMonth()],
+      days,
+    })
   }
-  return weeks
-}
 
-// One label per week column: the month name where a new month begins,
-// blank otherwise, so labels read lightly across the top like "Jun Jul Aug".
-export function monthLabelsForWeeks(weeks) {
-  let lastMonth = null
-  return weeks.map((week) => {
-    const monday = week[0].date
-    const month = monday.getMonth()
-    if (month !== lastMonth) {
-      lastMonth = month
-      return MONTH_LABELS[month]
-    }
-    return ''
-  })
+  return months
 }

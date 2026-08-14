@@ -421,20 +421,6 @@
   margin-top: 4px;
 }
 
-.month-labels {
-  display: flex;
-  gap: var(--cell-gap, 3px);
-  margin: 22px 0 6px;
-}
-
-.month-label {
-  width: var(--cell-size, 9px);
-  font-size: 10px;
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: visible;
-}
-
 .progress-section {
   margin-top: 26px;
 }
@@ -473,23 +459,38 @@
   font-weight: 700;
 }
 
-.item-grid {
-  display: flex;
-  gap: var(--cell-gap, 3px);
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-
-.item-grid-col {
+.item-grid-months {
   display: flex;
   flex-direction: column;
-  gap: var(--cell-gap, 3px);
-  flex-shrink: 0;
+  gap: 7px;
+}
+
+.item-grid-month-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-grid-month-label {
+  flex: 0 0 26px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.item-grid-days {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(31, minmax(0, 1fr));
+  gap: 2.5px;
+  min-width: 0;
 }
 
 .grid-cell {
-  width: var(--cell-size, 9px);
-  height: var(--cell-size, 9px);
+  aspect-ratio: 1;
+  width: 100%;
   border-radius: 2.5px;
   background: var(--border);
 }
@@ -498,7 +499,8 @@
   background: var(--section-color);
 }
 
-.cell-future {
+.cell-future,
+.cell-pad {
   background: transparent;
 }
 
