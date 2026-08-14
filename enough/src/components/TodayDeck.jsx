@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { ITEMS } from '../data/items'
+import { ITEMS, SECTION_BY_ID } from '../data/items'
 import { useApp } from '../context/AppContext'
 import { todayKey } from '../lib/date'
 import SwipeCard from './SwipeCard'
@@ -63,6 +63,10 @@ export default function TodayDeck() {
       </div>
 
       <div className="deck-stack">
+        <div
+          className="deck-glow"
+          style={{ background: SECTION_BY_ID[currentItem.section].color }}
+        />
         <AnimatePresence custom={exitDirection}>
           <SwipeCard key={currentItem.id} item={currentItem} onDecide={handleDecide} />
         </AnimatePresence>

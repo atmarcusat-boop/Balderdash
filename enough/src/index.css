@@ -52,6 +52,12 @@ body {
   max-width: 520px;
   margin: 0 auto;
   position: relative;
+  background:
+    radial-gradient(560px circle at 12% -8%, color-mix(in srgb, var(--section-bedrock) 13%, transparent), transparent 60%),
+    radial-gradient(560px circle at 108% 12%, color-mix(in srgb, var(--section-character) 11%, transparent), transparent 60%),
+    radial-gradient(640px circle at -8% 88%, color-mix(in srgb, var(--section-balance) 11%, transparent), transparent 60%),
+    radial-gradient(640px circle at 108% 102%, color-mix(in srgb, var(--section-human) 12%, transparent), transparent 60%),
+    var(--bg);
 }
 
 button {

@@ -18,10 +18,14 @@ export default function ItemGrid({ item, weeks }) {
     return count
   }, [weeks, checkins, item.id])
 
+  const Icon = item.icon
+
   return (
     <div className="item-grid-block">
       <div className="item-grid-header">
-        <span className="section-dot" style={{ background: section.color }} />
+        <div className="icon-badge icon-badge-xs" style={{ '--section-color': section.color }}>
+          <Icon size={14} strokeWidth={2.25} />
+        </div>
         <span className="item-grid-name">{item.name}</span>
       </div>
       <div className="item-grid" style={{ '--section-color': section.color }}>

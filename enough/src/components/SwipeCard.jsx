@@ -2,6 +2,14 @@ import { useRef, useState } from 'react'
 import { motion, useMotionValue, useTransform, animate as animateValue } from 'framer-motion'
 import { SECTION_BY_ID } from '../data/items'
 
+function IconBadge({ Icon, color, size = 'lg' }) {
+  return (
+    <div className={`icon-badge icon-badge-${size}`} style={{ '--section-color': color }}>
+      <Icon size={size === 'lg' ? 28 : 18} strokeWidth={2} />
+    </div>
+  )
+}
+
 const SWIPE_THRESHOLD = 110
 const VELOCITY_THRESHOLD = 500
 
@@ -79,6 +87,7 @@ export default function SwipeCard({ item, onDecide, interactive = true }) {
           style={{ '--section-color': section.color }}
         >
           <span className="section-tag">{section.name}</span>
+          <IconBadge Icon={item.icon} color={section.color} />
           <h2 className="item-name">{item.name}</h2>
           <p className="item-question">{item.front}</p>
           {item.example && <p className="item-example">{item.example}</p>}
@@ -90,6 +99,7 @@ export default function SwipeCard({ item, onDecide, interactive = true }) {
           style={{ '--section-color': section.color }}
         >
           <span className="section-tag">{section.name}</span>
+          <IconBadge Icon={item.icon} color={section.color} size="sm" />
           <h3 className="item-name item-name-small">{item.name}</h3>
           <p className="item-description">{item.back}</p>
           <span className="flip-hint">tap to flip back</span>

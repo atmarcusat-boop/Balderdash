@@ -32,6 +32,7 @@
   color: #0f1512;
   padding: 15px 30px;
   font-size: 16px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .btn-ghost {
@@ -64,6 +65,37 @@
 
 .onboarding-slide {
   touch-action: pan-y;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+}
+
+.onboarding-icon-glow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--slide-color) 24%, transparent) 0%,
+    color-mix(in srgb, var(--slide-color) 8%, transparent) 55%,
+    transparent 75%
+  );
+}
+
+.onboarding-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--slide-color);
+  background: color-mix(in srgb, var(--slide-color) 22%, var(--bg-card));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--slide-color) 32%, transparent);
 }
 
 .onboarding-text {
@@ -136,6 +168,18 @@
   align-items: center;
   justify-content: center;
   min-height: 0;
+}
+
+.deck-glow {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.32;
+  transition: background-color 0.5s ease;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .deck-buttons {
@@ -232,10 +276,34 @@
   border-radius: 20px;
 }
 
+.icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--section-color);
+  background: color-mix(in srgb, var(--section-color) 20%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--section-color) 28%, transparent);
+  flex-shrink: 0;
+}
+
+.icon-badge-lg {
+  width: 56px;
+  height: 56px;
+  margin-top: auto;
+  margin-bottom: 18px;
+}
+
+.icon-badge-sm {
+  width: 38px;
+  height: 38px;
+  margin-top: 14px;
+  margin-bottom: 12px;
+}
+
 .item-name {
   font-size: 30px;
   font-weight: 800;
-  margin-top: auto;
   letter-spacing: -0.01em;
 }
 
@@ -395,10 +463,9 @@
   margin-bottom: 10px;
 }
 
-.section-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+.icon-badge-xs {
+  width: 26px;
+  height: 26px;
 }
 
 .item-grid-name {
@@ -453,6 +520,10 @@
 
 .nav-btn {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   background: transparent;
   border: none;
   color: var(--text-faint);
@@ -470,7 +541,6 @@
 
 .nav-btn-settings {
   flex: 0 0 44px;
-  font-size: 18px;
 }
 
 /* ---------- settings sheet ---------- */
