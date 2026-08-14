@@ -249,7 +249,20 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 16px;
+    gap: 14px;
+  }
+
+  .card-icon {
+    width: 62px;
+    height: 62px;
+    color: var(--paper-text);
+    margin-bottom: 2px;
+  }
+
+  .card-icon svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
   }
 
   .card-title {
@@ -963,6 +976,194 @@ function CheckThick() {
   );
 }
 
+function dPath(d, extra) {
+  return h(
+    "path",
+    Object.assign(
+      {
+        d,
+        stroke: "currentColor",
+        strokeWidth: "2.4",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        fill: "none",
+      },
+      extra || {}
+    )
+  );
+}
+
+function dCircle(cx, cy, r, extra) {
+  return h(
+    "circle",
+    Object.assign(
+      { cx, cy, r, stroke: "currentColor", strokeWidth: "2.4", fill: "none" },
+      extra || {}
+    )
+  );
+}
+
+function dRect(x, y, w, hh, rx, extra) {
+  return h(
+    "rect",
+    Object.assign(
+      { x, y, width: w, height: hh, rx, stroke: "currentColor", strokeWidth: "2.4", fill: "none" },
+      extra || {}
+    )
+  );
+}
+
+const ICONS = {
+  sleep: () =>
+    [
+      dPath("M29 9C20.5 9 13.5 16 13.5 24.5C13.5 33 20.5 40 29 40C23 39 18.5 32 18.5 24.5C18.5 17 23 10 29 9Z"),
+      dPath("M32 12L37 12L32 17L37 17"),
+      dPath("M39 8L42 8L39 11L42 11"),
+    ],
+  exercise: () =>
+    [
+      dRect(6, 18, 5, 12, 2),
+      dRect(37, 18, 5, 12, 2),
+      dRect(10, 21, 4, 6, 1),
+      dRect(34, 21, 4, 6, 1),
+      dPath("M15 24H33"),
+    ],
+  "whole-foods": () =>
+    [
+      dPath("M24 14C19 10 12 13 12 21C12 30 18 38 24 38C30 38 36 30 36 21C36 13 29 10 24 14Z"),
+      dPath("M24 14L24 8"),
+      dPath("M24 10C27 8 30 9 30 12C27 13 25 12 24 10Z", { fill: "var(--orange)", stroke: "none" }),
+    ],
+  duty: () =>
+    [
+      dRect(12, 10, 24, 30, 3),
+      dRect(19, 7, 10, 6, 2),
+      dPath("M17 26L21 30L31 18"),
+    ],
+  authenticity: () =>
+    [
+      dPath("M24 10C15 10 9 17 9 25C9 30 11 34 14 37"),
+      dPath("M24 14C18 14 13 19 13 25C13 29 15 32 17 34"),
+      dPath("M24 18C21 18 17 21 17 25"),
+      dPath("M30 12C36 16 38 21 37 28C36 33 33 37 29 39"),
+      dPath("M27 15C32 18 34 21 33 27"),
+    ],
+  purpose: () =>
+    [
+      dCircle(24, 24, 12),
+      dCircle(24, 24, 7),
+      dCircle(24, 24, 2, { fill: "var(--orange)", stroke: "none" }),
+      dPath("M31 10L38 10L38 17"),
+      dPath("M38 10L29 19"),
+    ],
+  socialise: () =>
+    [
+      dPath("M8 12H28C30 12 31 13 31 15V24C31 26 30 27 28 27H16L10 32V27H8C6 27 5 26 5 24V15C5 13 6 12 8 12Z"),
+      dPath(
+        "M22 18H40C42 18 43 19 43 21V28C43 30 42 31 40 31H36V36L31 31H22C20 31 19 30 19 28V21C19 19 20 18 22 18Z",
+        { fill: "var(--tag)" }
+      ),
+    ],
+  relationship: () =>
+    [
+      dPath("M16 15C13 11 6 12 6 18C6 24 12 28 16 32C20 28 26 24 26 18C26 12 19 11 16 15Z"),
+      dPath("M32 15C29 11 22 12 22 18C22 24 28 28 32 32C36 28 42 24 42 18C42 12 35 11 32 15Z", {
+        fill: "var(--cobalt)",
+        fillOpacity: "0.25",
+      }),
+    ],
+  rest: () =>
+    [
+      dPath("M14 20H32V32C32 35 30 37 27 37H19C16 37 14 35 14 32V20Z"),
+      dPath("M32 22C37 22 39 25 39 28C39 31 37 34 32 34"),
+      dPath("M20 16C18 13 22 12 20 9"),
+      dPath("M27 16C25 13 29 12 27 9"),
+    ],
+  play: () =>
+    [
+      dRect(12, 12, 24, 24, 5),
+      dCircle(18, 18, 2, { fill: "currentColor", stroke: "none" }),
+      dCircle(30, 18, 2, { fill: "currentColor", stroke: "none" }),
+      dCircle(24, 24, 2, { fill: "var(--orange)", stroke: "none" }),
+      dCircle(18, 30, 2, { fill: "currentColor", stroke: "none" }),
+      dCircle(30, 30, 2, { fill: "currentColor", stroke: "none" }),
+    ],
+  values: () =>
+    [
+      dCircle(24, 24, 15),
+      dPath("M24 11L28 24L24 24Z", { fill: "var(--orange)", strokeWidth: "1.5" }),
+      dPath("M24 37L20 24L24 24Z", { strokeWidth: "1.5" }),
+      dCircle(24, 24, 1.6, { fill: "currentColor", stroke: "none" }),
+    ],
+  integrity: () =>
+    [
+      dRect(9, 9, 30, 30, 3),
+      dPath("M24 9V14L18 18L30 21L18 24L30 27L18 31L24 35V39"),
+    ],
+  gratitude: () =>
+    [
+      dPath("M24 34C24 34 12 26 12 17C12 12 17 9 24 15C31 9 36 12 36 17C36 26 24 34 24 34Z"),
+      dPath("M24 8V4"),
+      dPath("M11 13L7.5 10"),
+      dPath("M37 13L40.5 10"),
+      dCircle(7, 18, 1.4, { fill: "var(--orange)", stroke: "none" }),
+      dCircle(41, 18, 1.4, { fill: "var(--orange)", stroke: "none" }),
+    ],
+  enough: () =>
+    [
+      dPath("M19.3 22H28.7L28 36C28 38 26 39 24 39C22 39 20 38 20 36L19.3 22Z", {
+        fill: "var(--cobalt)",
+        fillOpacity: "0.8",
+        stroke: "none",
+      }),
+      dPath("M18 12H30L28 36C28 38 26 39 24 39C22 39 20 38 20 36L18 12Z"),
+      dPath("M13 22H18"),
+    ],
+  serve: () =>
+    [
+      dPath("M12 26C12 32 17 37 24 37C31 37 36 32 36 26"),
+      dPath("M24 8L26.5 14.5L33 16L26.5 17.5L24 24L21.5 17.5L15 16L21.5 14.5Z", { fill: "var(--orange)" }),
+    ],
+  money: () =>
+    [
+      dCircle(24, 24, 14),
+      dPath("M28 17C25 15 20 16 20 20C20 24 28 24 28 28C28 32 23 33 20 31"),
+      dPath("M24 12V15"),
+      dPath("M24 33V36"),
+    ],
+  moderation: () =>
+    [
+      dPath("M24 12V36"),
+      dPath("M17 36H31"),
+      dPath("M11 18H37"),
+      dPath("M14 18L14 25"),
+      dCircle(14, 28, 3),
+      dPath("M34 18L34 25"),
+      dCircle(34, 28, 3),
+      dCircle(24, 18, 1.8, { fill: "currentColor", stroke: "none" }),
+    ],
+  spirituality: () =>
+    [
+      dRect(20, 22, 8, 16, 1.5),
+      dPath("M14 38H34"),
+      dPath("M24 22V19"),
+      dPath("M24 8C21 12 20 15 22 18C23 19.5 25 19.5 26 18C28 15 27 11 24 8Z", {
+        fill: "var(--orange)",
+        stroke: "none",
+      }),
+    ],
+};
+
+function ItemIcon({ id }) {
+  const draw = ICONS[id];
+  if (!draw) return null;
+  return h(
+    "div",
+    { className: "card-icon" },
+    h("svg", { viewBox: "0 0 48 48", fill: "none" }, ...draw())
+  );
+}
+
 function Card({ item, index, total, dragX, isDragging, exitDir, handlers }) {
   let tx = dragX;
   if (exitDir === "left") tx = -640;
@@ -998,6 +1199,7 @@ function Card({ item, index, total, dragX, isDragging, exitDir, handlers }) {
     h(
       "div",
       { className: "card-body" },
+      h(ItemIcon, { id: item.id }),
       h("h2", { className: "card-title" }, item.label),
       h("p", { className: "card-question" }, item.description)
     ),
