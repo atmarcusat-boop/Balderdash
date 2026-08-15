@@ -1,8 +1,7 @@
 import { SECTION_BY_ID } from '../data/items'
 import { dateKey } from '../lib/date'
+import { isFilled, isPartial } from '../lib/answers'
 import { useApp } from '../context/AppContext'
-
-const COLUMNS = 31
 
 export default function ItemGrid({ item, months }) {
   const { checkins } = useApp()
@@ -22,20 +21,21 @@ export default function ItemGrid({ item, months }) {
         {months.map((month) => (
           <div className="item-grid-month-row" key={month.key}>
             <span className="item-grid-month-label">{month.label}</span>
-            <div className="item-grid-days">
-              {Array.from({ length: COLUMNS }, (_, i) => {
-                const day = month.days[i]
-                if (!day) {
-                  return <div className="grid-cell cell-pad" key={i} />
-                }
-                if (day.future) {
-                  return <div className="grid-cell cell-future" key={i} />
-                }
-                const filled = Boolean(checkins[dateKey(day.date)]?.[item.id])
+            <div
+              className="item-grid-days"
+              style={{ gridTemplateColumns: `repeat(${month.days.length}, minmax(0, 1fr))` }}
+            >
+              {month.days.map((day) => {
+                const value = checkins[dateKey(day.date)]?.[item.id]
+                const stateClass = isFilled(value)
+                  ? ' cell-filled'
+                  : isPartial(value)
+                    ? ' cell-partial'
+                    : ''
                 return (
                   <div
-                    key={i}
-                    className={`grid-cell${filled ? ' cell-filled' : ''}`}
+                    key={dateKey(day.date)}
+                    className={`grid-cell${stateClass}`}
                     title={dateKey(day.date)}
                   />
                 )

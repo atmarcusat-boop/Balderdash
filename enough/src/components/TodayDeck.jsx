@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion'
 import { ITEMS, SECTION_BY_ID } from '../data/items'
 import { useApp } from '../context/AppContext'
 import { todayKey } from '../lib/date'
+import { weight } from '../lib/answers'
 import SwipeCard from './SwipeCard'
 
 function reflectionFor(count) {
@@ -28,12 +29,12 @@ export default function TodayDeck() {
   const done = index >= ITEMS.length
 
   const yesCount = useMemo(
-    () => Object.values(todayEntry).filter(Boolean).length,
+    () => Object.values(todayEntry).reduce((sum, value) => sum + weight(value), 0),
     [todayEntry],
   )
 
   function handleDecide(direction) {
-    recordAnswer(currentItem.id, direction === 'yes')
+    recordAnswer(currentItem.id, direction)
     setExitDirection(direction)
     setIndex((i) => i + 1)
   }
@@ -80,6 +81,14 @@ export default function TodayDeck() {
           onClick={() => handleDecide('no')}
         >
           ✕
+        </button>
+        <button
+          type="button"
+          className="deck-btn deck-btn-partial tap-target"
+          aria-label="Partway there"
+          onClick={() => handleDecide('partial')}
+        >
+          –
         </button>
         <button
           type="button"

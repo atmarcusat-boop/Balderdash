@@ -1,5 +1,6 @@
 import { ITEMS } from '../data/items'
 import { addDays, dateKey, todayKey } from './date'
+import { NO, PARTIAL, YES } from './answers'
 
 const KEYS = {
   onboarded: 'enough:onboarded',
@@ -49,7 +50,11 @@ export function seedRandomData(days = 90) {
     if (checkins[key]) continue // don't clobber real history
     const entry = {}
     ITEMS.forEach((item) => {
-      entry[item.id] = Math.random() < likelihood[item.id]
+      if (Math.random() >= likelihood[item.id]) {
+        entry[item.id] = NO
+      } else {
+        entry[item.id] = Math.random() < 0.2 ? PARTIAL : YES
+      }
     })
     checkins[key] = entry
   }

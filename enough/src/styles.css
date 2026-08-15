@@ -186,7 +186,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 34px;
+  gap: 22px;
   padding: 26px 0 10px;
 }
 
@@ -211,6 +211,14 @@
 
 .deck-btn-no {
   color: var(--text-muted);
+}
+
+.deck-btn-partial {
+  width: 48px;
+  height: 48px;
+  font-size: 26px;
+  color: var(--partial-color);
+  border-color: var(--partial-color);
 }
 
 /* ---------- swipe card ---------- */
@@ -370,6 +378,14 @@
   transform: rotate(-8deg);
 }
 
+.stamp-partial {
+  top: auto;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--partial-color);
+}
+
 /* ---------- reflection ---------- */
 
 .deck-reflection {
@@ -483,7 +499,6 @@
 .item-grid-days {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(31, minmax(0, 1fr));
   gap: 2.5px;
   min-width: 0;
 }
@@ -499,9 +514,8 @@
   background: var(--section-color);
 }
 
-.cell-future,
-.cell-pad {
-  background: transparent;
+.cell-partial {
+  background: color-mix(in srgb, var(--section-color) 42%, var(--border));
 }
 
 /* ---------- bottom nav ---------- */

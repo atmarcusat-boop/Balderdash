@@ -18,6 +18,7 @@ const cardVariants = {
   center: { scale: 1, opacity: 1, y: 0 },
   exit: (dir) => ({
     x: dir === 'yes' ? 500 : dir === 'no' ? -500 : 0,
+    y: dir === 'partial' ? 500 : 0,
     rotate: dir === 'yes' ? 18 : dir === 'no' ? -18 : 0,
     opacity: 0,
     transition: { duration: 0.32, ease: 'easeIn' },
@@ -27,20 +28,30 @@ const cardVariants = {
 export default function SwipeCard({ item, onDecide, interactive = true }) {
   const [flipped, setFlipped] = useState(false)
   const x = useMotionValue(0)
+  const y = useMotionValue(0)
   const wasDragged = useRef(false)
   const section = SECTION_BY_ID[item.section]
 
   const rotate = useTransform(x, [-220, 220], [-14, 14])
   const yesOpacity = useTransform(x, [10, 100], [0, 1])
   const noOpacity = useTransform(x, [-100, -10], [1, 0])
+  const partialOpacity = useTransform(y, [10, 100], [0, 1])
 
   function handleDragEnd(_, info) {
-    const passedDistance = Math.abs(info.offset.x) > SWIPE_THRESHOLD
-    const passedVelocity = Math.abs(info.velocity.x) > VELOCITY_THRESHOLD
-    if (passedDistance || passedVelocity) {
-      onDecide(info.offset.x > 0 ? 'yes' : 'no')
+    const { x: dx, y: dy } = info.offset
+    const verticalWins = Math.abs(dy) > Math.abs(dx)
+    const passedDistance = verticalWins ? dy > SWIPE_THRESHOLD : Math.abs(dx) > SWIPE_THRESHOLD
+    const passedVelocity = verticalWins
+      ? info.velocity.y > VELOCITY_THRESHOLD
+      : Math.abs(info.velocity.x) > VELOCITY_THRESHOLD
+
+    if (verticalWins && dy > 0 && (passedDistance || passedVelocity)) {
+      onDecide('partial')
+    } else if (!verticalWins && (passedDistance || passedVelocity)) {
+      onDecide(dx > 0 ? 'yes' : 'no')
     } else {
       animateValue(x, 0, { type: 'spring', stiffness: 400, damping: 32 })
+      animateValue(y, 0, { type: 'spring', stiffness: 400, damping: 32 })
     }
     setTimeout(() => {
       wasDragged.current = false
@@ -48,7 +59,7 @@ export default function SwipeCard({ item, onDecide, interactive = true }) {
   }
 
   function handleClick() {
-    if (Math.abs(x.get()) > 5) {
+    if (Math.abs(x.get()) > 5 || Math.abs(y.get()) > 5) {
       wasDragged.current = true
       return
     }
@@ -58,9 +69,9 @@ export default function SwipeCard({ item, onDecide, interactive = true }) {
   return (
     <motion.div
       className="swipe-card"
-      style={interactive ? { x, rotate } : undefined}
-      drag={interactive ? 'x' : false}
-      dragConstraints={{ left: 0, right: 0 }}
+      style={interactive ? { x, y, rotate } : undefined}
+      drag={interactive}
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       dragElastic={0.9}
       onDragEnd={interactive ? handleDragEnd : undefined}
       onClick={interactive ? handleClick : undefined}
@@ -77,6 +88,9 @@ export default function SwipeCard({ item, onDecide, interactive = true }) {
           </motion.div>
           <motion.div className="stamp stamp-no" style={{ opacity: noOpacity }}>
             not today
+          </motion.div>
+          <motion.div className="stamp stamp-partial" style={{ opacity: partialOpacity }}>
+            partial
           </motion.div>
         </>
       )}
