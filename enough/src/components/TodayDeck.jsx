@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { RotateCcw } from 'lucide-react'
+import { Layers, ListChecks, RotateCcw } from 'lucide-react'
 import { ITEMS, SECTION_BY_ID } from '../data/items'
 import { useApp } from '../context/AppContext'
 import { todayKey } from '../lib/date'
 import { weight } from '../lib/answers'
 import SwipeCard from './SwipeCard'
+import ChecklistView from './ChecklistView'
 
 function reflectionFor(count) {
   if (count >= 11) return 'A full day.'
@@ -20,14 +21,15 @@ export default function TodayDeck() {
   const today = todayKey()
   const todayEntry = checkins[today] || {}
 
-  const answeredCount = Object.keys(todayEntry).length
-  const initialIndex = Math.min(answeredCount, ITEMS.length)
-  const [index, setIndex] = useState(initialIndex)
-
+  const [viewMode, setViewMode] = useState('deck')
   const [exitDirection, setExitDirection] = useState(null)
 
-  const currentItem = ITEMS[index]
-  const done = index >= ITEMS.length
+  const answeredCount = Object.keys(todayEntry).length
+  const currentItem = useMemo(
+    () => ITEMS.find((item) => todayEntry[item.id] === undefined),
+    [todayEntry],
+  )
+  const done = !currentItem
 
   const yesCount = useMemo(
     () => Object.values(todayEntry).reduce((sum, value) => sum + weight(value), 0),
@@ -37,12 +39,15 @@ export default function TodayDeck() {
   function handleDecide(direction) {
     recordAnswer(currentItem.id, direction)
     setExitDirection(direction)
-    setIndex((i) => i + 1)
   }
 
   function handleReview() {
     clearTodayAnswers(today)
-    setIndex(0)
+    setViewMode('deck')
+  }
+
+  function toggleView() {
+    setViewMode((mode) => (mode === 'deck' ? 'list' : 'deck'))
   }
 
   if (done) {
@@ -64,51 +69,69 @@ export default function TodayDeck() {
       <div className="deck-progress-track">
         <motion.div
           className="deck-progress-fill"
-          animate={{ width: `${(index / ITEMS.length) * 100}%` }}
+          animate={{ width: `${(answeredCount / ITEMS.length) * 100}%` }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         />
       </div>
 
-      <div className="deck-progress">
-        <span>{index + 1} of {ITEMS.length}</span>
+      <div className="deck-progress-row">
+        <span className="deck-progress">{answeredCount} of {ITEMS.length}</span>
+        <button
+          type="button"
+          className="view-toggle tap-target"
+          aria-label={viewMode === 'deck' ? 'Switch to checklist' : 'Switch to cards'}
+          onClick={toggleView}
+        >
+          {viewMode === 'deck' ? (
+            <ListChecks size={17} strokeWidth={2.25} />
+          ) : (
+            <Layers size={17} strokeWidth={2.25} />
+          )}
+        </button>
       </div>
 
-      <div className="deck-stack">
-        <div
-          className="deck-glow"
-          style={{ background: SECTION_BY_ID[currentItem.section].color }}
-        />
-        <AnimatePresence custom={exitDirection}>
-          <SwipeCard key={currentItem.id} item={currentItem} onDecide={handleDecide} />
-        </AnimatePresence>
-      </div>
+      {viewMode === 'list' ? (
+        <ChecklistView todayEntry={todayEntry} onAnswer={recordAnswer} />
+      ) : (
+        <>
+          <div className="deck-stack">
+            <div
+              className="deck-glow"
+              style={{ background: SECTION_BY_ID[currentItem.section].color }}
+            />
+            <AnimatePresence custom={exitDirection}>
+              <SwipeCard key={currentItem.id} item={currentItem} onDecide={handleDecide} />
+            </AnimatePresence>
+          </div>
 
-      <div className="deck-buttons">
-        <button
-          type="button"
-          className="deck-btn deck-btn-no tap-target"
-          aria-label="Not today"
-          onClick={() => handleDecide('no')}
-        >
-          ✕
-        </button>
-        <button
-          type="button"
-          className="deck-btn deck-btn-partial tap-target"
-          aria-label="Partway there"
-          onClick={() => handleDecide('partial')}
-        >
-          –
-        </button>
-        <button
-          type="button"
-          className="deck-btn deck-btn-yes tap-target"
-          aria-label="Did this today"
-          onClick={() => handleDecide('yes')}
-        >
-          ✓
-        </button>
-      </div>
+          <div className="deck-buttons">
+            <button
+              type="button"
+              className="deck-btn deck-btn-no tap-target"
+              aria-label="Not today"
+              onClick={() => handleDecide('no')}
+            >
+              ✕
+            </button>
+            <button
+              type="button"
+              className="deck-btn deck-btn-partial tap-target"
+              aria-label="Partway there"
+              onClick={() => handleDecide('partial')}
+            >
+              –
+            </button>
+            <button
+              type="button"
+              className="deck-btn deck-btn-yes tap-target"
+              aria-label="Did this today"
+              onClick={() => handleDecide('yes')}
+            >
+              ✓
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -173,12 +173,109 @@
 }
 
 .deck-progress {
-  text-align: center;
   color: var(--text-faint);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.03em;
+}
+
+.deck-progress-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 10px 0 14px;
+}
+
+.view-toggle {
+  position: absolute;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.checklist {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.checklist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.checklist-row-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.checklist-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checklist-row-actions {
+  display: flex;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.checklist-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.checklist-btn-yes.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.checklist-btn-no.active {
+  color: var(--text);
+  border-color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 20%, transparent);
+}
+
+.checklist-btn-partial.active {
+  color: var(--partial-color);
+  border-color: var(--partial-color);
+  background: color-mix(in srgb, var(--partial-color) 20%, transparent);
 }
 
 .deck-stack {
