@@ -290,7 +290,6 @@
 .swipe-card-back {
   transform: rotateY(180deg);
   border-top: 3px solid var(--section-color);
-  justify-content: center;
 }
 
 .section-tag {
@@ -319,7 +318,7 @@
 .icon-badge-lg {
   width: 56px;
   height: 56px;
-  margin-top: auto;
+  margin-top: 14px;
   margin-bottom: 18px;
 }
 
@@ -367,10 +366,6 @@
   font-size: 12px;
   color: var(--text-faint);
   text-align: center;
-}
-
-.swipe-card-back .flip-hint {
-  margin-top: 20px;
 }
 
 .stamp {
