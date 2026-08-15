@@ -293,7 +293,7 @@
 }
 
 .section-tag {
-  align-self: flex-start;
+  align-self: flex-end;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
