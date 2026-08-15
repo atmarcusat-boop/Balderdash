@@ -603,6 +603,77 @@
   color: var(--text-faint);
 }
 
+.insights-card-tap {
+  width: 100%;
+  display: block;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.insights-more {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.breakdown-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.breakdown-section-line {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.breakdown-section-line span {
+  font-weight: 700;
+}
+
+.breakdown-group {
+  margin-bottom: 16px;
+}
+
+.breakdown-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.breakdown-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.breakdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .item-grid-block {
   padding: 14px 0;
   border-bottom: 1px solid var(--border);

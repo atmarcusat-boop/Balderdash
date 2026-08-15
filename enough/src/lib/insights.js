@@ -3,7 +3,7 @@
 // notice a shift. Nothing is surfaced unless there's enough data to back
 // it up — no percentages, no manufactured trends out of noise.
 
-import { ITEMS } from '../data/items'
+import { ITEMS, SECTIONS } from '../data/items'
 import { addDays, dateKey } from './date'
 import { weight } from './answers'
 
@@ -12,6 +12,8 @@ const MIN_ENTRIES = 6
 const MIN_HALF_ENTRIES = 3
 const TREND_THRESHOLD = 0.3
 const SPREAD_THRESHOLD = 0.12
+const TIER_STRONG = 0.7
+const TIER_STEADY = 0.4
 
 function average(values) {
   return values.reduce((sum, v) => sum + v, 0) / values.length
@@ -26,11 +28,11 @@ function recentDateKeys(days) {
   return keys
 }
 
-export function buildInsights(checkins, windowDays = WINDOW_DAYS) {
+function perItemStats(checkins, windowDays) {
   const keys = recentDateKeys(windowDays)
   const half = Math.floor(windowDays / 2)
 
-  const perItem = ITEMS.map((item) => {
+  return ITEMS.map((item) => {
     const entries = []
     keys.forEach((key, idx) => {
       const value = checkins[key]?.[item.id]
@@ -49,7 +51,10 @@ export function buildInsights(checkins, windowDays = WINDOW_DAYS) {
       delta: recentAvg != null && earlierAvg != null ? recentAvg - earlierAvg : null,
     }
   })
+}
 
+export function buildInsights(checkins, windowDays = WINDOW_DAYS) {
+  const perItem = perItemStats(checkins, windowDays)
   const qualifying = perItem.filter((p) => p.count >= MIN_ENTRIES && p.overall != null)
 
   if (qualifying.length === 0) {
@@ -79,4 +84,41 @@ export function buildInsights(checkins, windowDays = WINDOW_DAYS) {
   }
 
   return { ready: true, lines }
+}
+
+function tierFor(overall) {
+  if (overall >= TIER_STRONG) return 'strong'
+  if (overall >= TIER_STEADY) return 'steady'
+  return 'attention'
+}
+
+// A fuller pass for the detail sheet: every item bucketed into a plain
+// tier (rather than a top-3 highlight reel), plus one rollup line per
+// section. Still no raw numbers — just which of four calm buckets an
+// item currently sits in.
+export function buildFullBreakdown(checkins, windowDays = WINDOW_DAYS) {
+  const perItem = perItemStats(checkins, windowDays)
+
+  const tiers = { strong: [], steady: [], attention: [], noData: [] }
+  perItem.forEach((p) => {
+    if (p.count < MIN_ENTRIES || p.overall == null) {
+      tiers.noData.push(p.item)
+    } else {
+      tiers[tierFor(p.overall)].push(p.item)
+    }
+  })
+
+  const sections = SECTIONS.map((section) => {
+    const sectionStats = perItem.filter(
+      (p) => p.item.section === section.id && p.count >= MIN_ENTRIES && p.overall != null,
+    )
+    if (sectionStats.length === 0) {
+      return { section, tier: 'noData' }
+    }
+    return { section, tier: tierFor(average(sectionStats.map((p) => p.overall))) }
+  })
+
+  const anyData = perItem.some((p) => p.count >= MIN_ENTRIES && p.overall != null)
+
+  return { ready: anyData, tiers, sections }
 }
