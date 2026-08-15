@@ -4,6 +4,7 @@ import { ITEMS, SECTIONS } from '../data/items'
 import { buildMonths } from '../lib/grid'
 import ItemGrid from './ItemGrid'
 import ItemCalendarSheet from './ItemCalendarSheet'
+import InsightsCard from './InsightsCard'
 
 const MONTHS_BACK = 3
 
@@ -17,6 +18,8 @@ export default function Progress() {
         <h1>Progress</h1>
         <p className="progress-sub">The last three months, at a glance.</p>
       </div>
+
+      <InsightsCard />
 
       {SECTIONS.map((section) => (
         <div className="progress-section" key={section.id}>
