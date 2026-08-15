@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { ITEMS, SECTION_BY_ID } from '../data/items'
 import { useApp } from '../context/AppContext'
 import { todayKey } from '../lib/date'
@@ -59,6 +59,14 @@ export default function TodayDeck() {
 
   return (
     <div className="deck-screen">
+      <div className="deck-progress-track">
+        <motion.div
+          className="deck-progress-fill"
+          animate={{ width: `${(index / ITEMS.length) * 100}%` }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        />
+      </div>
+
       <div className="deck-progress">
         <span>{index + 1} of {ITEMS.length}</span>
       </div>

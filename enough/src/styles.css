@@ -152,13 +152,26 @@
   min-height: 0;
 }
 
+.deck-progress-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.deck-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
 .deck-progress {
   text-align: center;
   color: var(--text-faint);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.03em;
-  padding-bottom: 14px;
+  padding: 10px 0 14px;
 }
 
 .deck-stack {
