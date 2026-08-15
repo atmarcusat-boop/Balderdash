@@ -21,10 +21,7 @@ export default function ItemGrid({ item, months }) {
         {months.map((month) => (
           <div className="item-grid-month-row" key={month.key}>
             <span className="item-grid-month-label">{month.label}</span>
-            <div
-              className="item-grid-days"
-              style={{ gridTemplateColumns: `repeat(${month.days.length}, minmax(0, 1fr))` }}
-            >
+            <div className="item-grid-days">
               {month.days.map((day) => {
                 const value = checkins[dateKey(day.date)]?.[item.id]
                 const stateClass = isFilled(value)
