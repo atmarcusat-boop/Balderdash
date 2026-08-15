@@ -1,21 +1,36 @@
+import { CalendarDays } from 'lucide-react'
 import { SECTION_BY_ID } from '../data/items'
 import { dateKey } from '../lib/date'
 import { isFilled, isPartial } from '../lib/answers'
 import { useApp } from '../context/AppContext'
 
-export default function ItemGrid({ item, months }) {
+export default function ItemGrid({ item, months, onExpand, showHeader = true }) {
   const { checkins } = useApp()
   const section = SECTION_BY_ID[item.section]
   const Icon = item.icon
 
   return (
     <div className="item-grid-block">
-      <div className="item-grid-header">
-        <div className="icon-badge icon-badge-xs" style={{ '--section-color': section.color }}>
-          <Icon size={14} strokeWidth={2.25} />
+      {showHeader && (
+        <div className="item-grid-header">
+          <div className="item-grid-header-info">
+            <div className="icon-badge icon-badge-xs" style={{ '--section-color': section.color }}>
+              <Icon size={14} strokeWidth={2.25} />
+            </div>
+            <span className="item-grid-name">{item.name}</span>
+          </div>
+          {onExpand && (
+            <button
+              type="button"
+              className="item-grid-expand tap-target"
+              aria-label={`Full calendar for ${item.name}`}
+              onClick={() => onExpand(item)}
+            >
+              <CalendarDays size={15} strokeWidth={2.25} />
+            </button>
+          )}
         </div>
-        <span className="item-grid-name">{item.name}</span>
-      </div>
+      )}
 
       <div className="item-grid-months" style={{ '--section-color': section.color }}>
         {months.map((month) => (

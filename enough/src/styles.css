@@ -574,8 +574,30 @@
 .item-grid-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.item-grid-header-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.item-grid-expand {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .icon-badge-xs {
@@ -702,6 +724,39 @@
   font-size: 20px;
   font-weight: 800;
   margin-bottom: 6px;
+}
+
+.sheet-calendar {
+  max-height: 82vh;
+  overflow: hidden;
+}
+
+.sheet-calendar-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sheet-calendar-title .sheet-title {
+  margin-bottom: 0;
+}
+
+.sheet-sub {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: -6px;
+}
+
+.sheet-calendar-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 4px;
+}
+
+.sheet-calendar-body .item-grid-block {
+  padding: 0;
+  border-bottom: none;
 }
 
 .settings-account {

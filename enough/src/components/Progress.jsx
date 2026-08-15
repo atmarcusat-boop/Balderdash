@@ -1,12 +1,15 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { ITEMS, SECTIONS } from '../data/items'
 import { buildMonths } from '../lib/grid'
 import ItemGrid from './ItemGrid'
+import ItemCalendarSheet from './ItemCalendarSheet'
 
 const MONTHS_BACK = 3
 
 export default function Progress() {
   const months = useMemo(() => buildMonths(MONTHS_BACK), [])
+  const [expandedItem, setExpandedItem] = useState(null)
 
   return (
     <div className="progress-screen">
@@ -21,10 +24,16 @@ export default function Progress() {
             {section.name}
           </h2>
           {ITEMS.filter((item) => item.section === section.id).map((item) => (
-            <ItemGrid key={item.id} item={item} months={months} />
+            <ItemGrid key={item.id} item={item} months={months} onExpand={setExpandedItem} />
           ))}
         </div>
       ))}
+
+      <AnimatePresence>
+        {expandedItem && (
+          <ItemCalendarSheet item={expandedItem} onClose={() => setExpandedItem(null)} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
