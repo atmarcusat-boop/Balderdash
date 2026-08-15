@@ -211,6 +211,7 @@
 
 .deck-btn-no {
   color: var(--text-muted);
+  border-color: var(--text-muted);
 }
 
 .deck-btn-partial {
