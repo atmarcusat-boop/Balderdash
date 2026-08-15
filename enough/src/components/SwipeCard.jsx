@@ -10,6 +10,16 @@ function IconBadge({ Icon, color, size = 'lg' }) {
   )
 }
 
+function faceStyle(color, image) {
+  const style = { '--section-color': color }
+  if (image) {
+    style.backgroundImage = `linear-gradient(180deg, rgba(10, 11, 15, 0.5), rgba(10, 11, 15, 0.72)), url(${image})`
+    style.backgroundSize = 'cover'
+    style.backgroundPosition = 'center'
+  }
+  return style
+}
+
 const SWIPE_THRESHOLD = 110
 const VELOCITY_THRESHOLD = 500
 
@@ -96,10 +106,7 @@ export default function SwipeCard({ item, onDecide, interactive = true }) {
       )}
 
       <div className={`swipe-card-inner${flipped ? ' flipped' : ''}`}>
-        <div
-          className="swipe-card-face swipe-card-front"
-          style={{ '--section-color': section.color }}
-        >
+        <div className="swipe-card-face swipe-card-front" style={faceStyle(section.color, item.image)}>
           <span className="section-tag">{section.name}</span>
           <IconBadge Icon={item.icon} color={section.color} />
           <h2 className="item-name">{item.name}</h2>
@@ -108,10 +115,7 @@ export default function SwipeCard({ item, onDecide, interactive = true }) {
           <span className="flip-hint">tap to read more</span>
         </div>
 
-        <div
-          className="swipe-card-face swipe-card-back"
-          style={{ '--section-color': section.color }}
-        >
+        <div className="swipe-card-face swipe-card-back" style={faceStyle(section.color, item.image)}>
           <span className="section-tag">{section.name}</span>
           <IconBadge Icon={item.icon} color={section.color} size="sm" />
           <h3 className="item-name item-name-small">{item.name}</h3>

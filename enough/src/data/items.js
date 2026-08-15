@@ -26,6 +26,8 @@ import {
   Sparkle,
 } from 'lucide-react'
 
+import authenticityImage from '../assets/cards/authenticity.webp'
+
 export const SECTIONS = [
   { id: 'bedrock', name: 'Bedrock', color: '#6fa3b8' },
   { id: 'character', name: 'Character', color: '#c99a5b' },
@@ -74,7 +76,7 @@ export const ITEMS = [
     front: 'Were you yourself today?',
     example: 'Small as saying what you actually think, big as a life choice that’s true to you.',
     back: 'Living as who you actually are, not as others want you to be, with honesty and integrity. When your actions match what you believe, the day sits easier.',
-    image: null,
+    image: authenticityImage,
   },
   {
     id: 'serve',
