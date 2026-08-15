@@ -4,29 +4,49 @@ import { CloudSun, Compass, Leaf, Sparkles } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SECTIONS } from '../data/items'
 
-const SLIDES = [
+// Each group is one idea, one icon, one color — but broken into individual
+// sentences so a screen is never more than one thought.
+const GROUPS = [
   {
     icon: CloudSun,
     color: SECTIONS[0].color,
-    text: "Some days are good. Some aren't. Enough helps you notice why.",
+    sentences: [
+      'Some days are good.',
+      "Some aren't.",
+      'Enough helps you notice why.',
+    ],
   },
   {
     icon: Compass,
     color: SECTIONS[1].color,
-    text: "There's endless advice on how to be happy, and it's hard to hear yourself think over it. So we looked at the research and found 12 things that, done most days, tend to make life better.",
+    sentences: [
+      "There's endless advice on how to be happy, and it's hard to hear yourself think over it.",
+      'So we looked at the research and found 12 things that, done most days, tend to make life better.',
+    ],
   },
   {
     icon: Leaf,
     color: SECTIONS[2].color,
-    text: 'No streaks. No goals. Nothing to guilt you into opening the app again. Just a simple daily check: did I have a good day? And if so, why? If not, why?',
+    sentences: [
+      'No streaks.',
+      'No goals.',
+      'Nothing to guilt you into opening the app again.',
+      'Just a simple daily check: did I have a good day?',
+      'And if so, why?',
+      'If not, why?',
+    ],
   },
   {
     icon: Sparkles,
     color: SECTIONS[3].color,
-    text: 'Free forever. Give it a go.',
-    cta: true,
+    sentences: ['Free forever.', 'Give it a go.'],
   },
 ]
+
+const SLIDES = GROUPS.flatMap(({ icon, color, sentences }) =>
+  sentences.map((text) => ({ icon, color, text })),
+)
+SLIDES[SLIDES.length - 1].cta = true
 
 const SWIPE_THRESHOLD = 60
 
