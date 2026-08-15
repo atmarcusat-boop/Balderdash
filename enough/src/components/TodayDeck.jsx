@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { RotateCcw } from 'lucide-react'
 import { ITEMS, SECTION_BY_ID } from '../data/items'
 import { useApp } from '../context/AppContext'
 import { todayKey } from '../lib/date'
@@ -50,7 +51,8 @@ export default function TodayDeck() {
         <p className="reflection-eyebrow">Today</p>
         <h1 className="reflection-text">{reflectionFor(yesCount)}</h1>
         <p className="reflection-sub">That's it for today — come back tomorrow.</p>
-        <button type="button" className="btn btn-ghost tap-target" onClick={handleReview}>
+        <button type="button" className="btn btn-ghost btn-icon tap-target" onClick={handleReview}>
+          <RotateCcw size={15} strokeWidth={2.25} />
           Go through again
         </button>
       </div>

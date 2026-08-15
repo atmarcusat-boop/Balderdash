@@ -45,6 +45,12 @@
   color: #241210;
 }
 
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
 /* ---------- onboarding ---------- */
 
 .onboarding {
