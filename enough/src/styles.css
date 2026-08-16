@@ -12,6 +12,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  padding-top: env(safe-area-inset-top);
 }
 
 /* ---------- shared bits ---------- */
@@ -59,7 +60,7 @@
   flex-direction: column;
   justify-content: space-between;
   height: 100dvh;
-  padding: 48px 28px 36px;
+  padding: calc(48px + env(safe-area-inset-top)) 28px calc(36px + env(safe-area-inset-bottom));
 }
 
 .onboarding-slide-area {
