@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CloudSun, Compass, Leaf, Sparkles } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { SECTIONS } from '../data/items'
+import AuthForm from './AuthForm'
 
 // Each group is one idea, one icon, one color — but broken into individual
 // sentences so a screen is never more than one thought.
@@ -51,12 +52,19 @@ SLIDES[SLIDES.length - 1].cta = true
 const SWIPE_THRESHOLD = 60
 
 export default function Onboarding() {
-  const { completeOnboarding } = useApp()
+  const { completeOnboarding, accountsEnabled, user } = useApp()
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(1)
+  const [phase, setPhase] = useState('story')
 
   const isLast = index === SLIDES.length - 1
   const Icon = SLIDES[index].icon
+
+  // Signing in (or up) from the account step should drop straight into the
+  // app, same as finishing onboarding normally.
+  useEffect(() => {
+    if (phase === 'account' && user) completeOnboarding()
+  }, [phase, user, completeOnboarding])
 
   function goTo(next) {
     if (next < 0 || next >= SLIDES.length) return
@@ -69,8 +77,35 @@ export default function Onboarding() {
     else if (info.offset.x > SWIPE_THRESHOLD) goTo(index - 1)
   }
 
+  if (phase === 'account') {
+    return (
+      <div className="onboarding">
+        <div className="onboarding-account-body">
+          <p className="reflection-eyebrow">Enough</p>
+          <h1 className="onboarding-account-title">Save your check-ins</h1>
+          <p className="onboarding-account-sub">Sign in and your data follows you to any device.</p>
+          <AuthForm />
+        </div>
+        <button type="button" className="btn btn-ghost tap-target" onClick={completeOnboarding}>
+          Skip for now
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="onboarding">
+      {accountsEnabled && index === 0 && (
+        <div className="onboarding-header">
+          <button
+            type="button"
+            className="onboarding-signin-link tap-target"
+            onClick={() => setPhase('account')}
+          >
+            Already have an account? Sign in
+          </button>
+        </div>
+      )}
       <div className="onboarding-slide-area">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
@@ -111,8 +146,12 @@ export default function Onboarding() {
         </div>
 
         {isLast ? (
-          <button type="button" className="btn btn-primary" onClick={completeOnboarding}>
-            Get started
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => (accountsEnabled ? setPhase('account') : completeOnboarding())}
+          >
+            {accountsEnabled ? 'Continue' : 'Get started'}
           </button>
         ) : (
           <div className="onboarding-actions">

@@ -7,7 +7,12 @@ import {
   useRef,
   useState,
 } from 'react'
-import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth'
 import {
   clearAllData,
   loadCheckins,
@@ -17,7 +22,7 @@ import {
   seedRandomData,
 } from '../lib/storage'
 import { todayKey } from '../lib/date'
-import { auth, firebaseEnabled, googleProvider } from '../lib/firebase'
+import { auth, firebaseEnabled } from '../lib/firebase'
 import {
   fetchRemoteCheckins,
   mergeCheckins,
@@ -26,6 +31,29 @@ import {
 } from '../lib/cloudSync'
 
 const AppContext = createContext(null)
+
+function friendlyAuthError(err) {
+  const code = err?.code || ''
+  if (code.includes('email-already-in-use')) {
+    return 'That email already has an account — try signing in instead.'
+  }
+  if (code.includes('weak-password')) {
+    return 'Password should be at least 6 characters.'
+  }
+  if (code.includes('invalid-email')) {
+    return "That email address doesn't look right."
+  }
+  if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) {
+    return 'Email or password is incorrect.'
+  }
+  if (code.includes('too-many-requests')) {
+    return 'Too many attempts — try again in a bit.'
+  }
+  if (code.includes('network-request-failed')) {
+    return "Couldn't reach the server — check your connection and try again."
+  }
+  return err?.message || 'Something went wrong.'
+}
 
 export function AppProvider({ children }) {
   const [onboarded, setOnboarded] = useState(loadOnboarded)
@@ -130,12 +158,21 @@ export function AppProvider({ children }) {
     if (user) writeRemoteCheckins(user.uid, next)
   }, [user])
 
-  const signInWithGoogle = useCallback(async () => {
+  const signUpWithEmail = useCallback(async (email, password) => {
     setAuthError(null)
     try {
-      await signInWithPopup(auth, googleProvider)
+      await createUserWithEmailAndPassword(auth, email, password)
     } catch (err) {
-      setAuthError(err?.message || 'Sign-in failed.')
+      setAuthError(friendlyAuthError(err))
+    }
+  }, [])
+
+  const signInWithEmail = useCallback(async (email, password) => {
+    setAuthError(null)
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch (err) {
+      setAuthError(friendlyAuthError(err))
     }
   }, [])
 
@@ -157,7 +194,8 @@ export function AppProvider({ children }) {
       authReady,
       authError,
       syncing,
-      signInWithGoogle,
+      signUpWithEmail,
+      signInWithEmail,
       signOutUser,
     }),
     [
@@ -172,7 +210,8 @@ export function AppProvider({ children }) {
       authReady,
       authError,
       syncing,
-      signInWithGoogle,
+      signUpWithEmail,
+      signInWithEmail,
       signOutUser,
     ],
   )

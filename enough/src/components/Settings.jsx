@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../context/AppContext'
+import AuthForm from './AuthForm'
 
 function AccountSection() {
-  const { accountsEnabled, authReady, user, authError, syncing, signInWithGoogle, signOutUser } =
-    useApp()
+  const { accountsEnabled, authReady, user, syncing, signOutUser } = useApp()
 
   if (!accountsEnabled) {
     return (
@@ -44,11 +44,7 @@ function AccountSection() {
 
   return (
     <div className="settings-account">
-      <button type="button" className="settings-row tap-target" onClick={signInWithGoogle}>
-        <span>Sign in with Google</span>
-        <span className="settings-row-hint">sync</span>
-      </button>
-      {authError && <p className="settings-account-error">{authError}</p>}
+      <AuthForm />
     </div>
   )
 }

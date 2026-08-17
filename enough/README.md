@@ -35,19 +35,23 @@ Open the `⋯` tab in the bottom bar for two dev-only actions: filling in
 three months of random test data (so the Progress grid has something to
 show immediately) and resetting all stored data.
 
-## Setting up Google sign-in (optional)
+## Setting up sign-in (optional)
 
 By default there's no account system — the Settings sheet just says so.
-To turn on "Sign in with Google" and sync check-ins to an account, you need
-a free Firebase project (Firebase is Google's own backend product, so it
-pairs directly with Google Sign-In with no separate OAuth setup).
+To turn on email/password sign-in and sync check-ins to an account, you
+need a free Firebase project. Email/password was chosen over Google
+Sign-In because it needs no OAuth consent screen or authorized-domain
+config, and it doesn't rely on a popup window — which matters here since
+the app is meant to be installed to a phone's home screen, and
+`signInWithPopup`-style flows are unreliable in that standalone mode on
+iOS Safari.
 
 **1. Create the project**
    - Go to [console.firebase.google.com](https://console.firebase.google.com) → **Add project** → give it any name → you can skip Google Analytics.
 
-**2. Turn on Google sign-in**
+**2. Turn on email/password sign-in**
    - In the left sidebar: **Build → Authentication → Get started**.
-   - Under the **Sign-in method** tab, enable **Google**, pick a support email, save.
+   - Under the **Sign-in method** tab, enable **Email/Password**, save.
 
 **3. Create the database**
    - Left sidebar: **Build → Firestore Database → Create database**.
@@ -76,12 +80,8 @@ pairs directly with Google Sign-In with no separate OAuth setup).
      VITE_FIREBASE_MESSAGING_SENDER_ID=...
      VITE_FIREBASE_APP_ID=...
      ```
-   - Restart `npm run dev` after adding it. The Settings sheet should now show a "Sign in with Google" row.
-
-**5. Authorized domains**
-   - Google Sign-In only works on domains you've told Firebase about. `localhost` is allowed automatically, so running locally (or on your phone via the printed `Network:` URL, which is still `http://<local-ip>` — see the caveat below) works out of the box.
-   - If you deploy the built app somewhere (Vercel, Netlify, GitHub Pages, etc.), add that domain under **Authentication → Settings → Authorized domains** or sign-in will be rejected.
-   - A phone on the same Wi-Fi hitting the `Network:` URL from `npm run dev -- --host` is **not** `localhost` from Firebase's point of view (it's an IP address), so Google may block the popup there. The reliable way to test sign-in on a phone is to deploy the build to a real domain and add it to the authorized list.
+   - Restart `npm run dev` after adding it. The Settings sheet should now show email/password sign-in fields, and the end of onboarding will offer the same.
+   - For the deployed GitHub Pages build, add these as repository variables/secrets and pass them into the build step in `.github/workflows/deploy-enough.yml` as env vars — Firebase web config values are safe to expose publicly, so plain repo variables (not secrets) are fine.
 
 Once configured, signing in merges whatever's already on that device with
 whatever's already in the account (nothing gets overwritten), then keeps

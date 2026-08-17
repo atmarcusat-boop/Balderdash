@@ -3,7 +3,7 @@
 // throws or blocks rendering. See README.md for setup steps.
 
 import { initializeApp, getApps } from 'firebase/app'
-import { getAuth, GoogleAuthProvider } from 'firebase/auth'
+import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
@@ -21,4 +21,3 @@ const app = firebaseEnabled ? (getApps()[0] ?? initializeApp(firebaseConfig)) : 
 
 export const auth = firebaseEnabled ? getAuth(app) : null
 export const db = firebaseEnabled ? getFirestore(app) : null
-export const googleProvider = firebaseEnabled ? new GoogleAuthProvider() : null
