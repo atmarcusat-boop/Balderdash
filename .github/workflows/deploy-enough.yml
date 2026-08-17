@@ -38,6 +38,13 @@ jobs:
       - name: Build
         working-directory: enough
         run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: AIzaSyBnG-_tN0ObrXyn6dd_yWhXmBl2LBQkwBg
+          VITE_FIREBASE_AUTH_DOMAIN: enough-app-77e07.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: enough-app-77e07
+          VITE_FIREBASE_STORAGE_BUCKET: enough-app-77e07.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '309102506740'
+          VITE_FIREBASE_APP_ID: 1:309102506740:web:c566e9dfcfa8c6add524a1
 
       - uses: actions/configure-pages@v5
 
