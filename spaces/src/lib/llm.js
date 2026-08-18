@@ -15,7 +15,7 @@ const TOOL = {
     properties: {
       word: {
         type: 'string',
-        description: 'A single common English word, 5-10 letters, lowercase, no spaces or hyphens.',
+        description: 'A single English word matching the requested difficulty, lowercase, no spaces or hyphens.',
       },
       definition: {
         type: 'string',
@@ -30,7 +30,17 @@ const TOOL = {
   },
 }
 
-export async function generateWord(apiKey, usedWords = []) {
+function difficultyBrief(difficulty) {
+  if (difficulty < 0.34) {
+    return 'Difficulty: EASY. Pick a short, extremely common everyday word (4-6 letters) most adults would know instantly.'
+  }
+  if (difficulty < 0.67) {
+    return 'Difficulty: MEDIUM. Pick a common but slightly less everyday word (6-9 letters) — not obscure, but not trivial either.'
+  }
+  return 'Difficulty: HARD. Pick a genuinely challenging, less common word (9+ letters) — the kind a strong reader would have to think about, not something in casual daily use.'
+}
+
+export async function generateWord(apiKey, usedWords = [], difficulty = 0) {
   const avoid = usedWords.length
     ? ` Avoid these words already used this game: ${usedWords.join(', ')}.`
     : ''
@@ -49,7 +59,7 @@ export async function generateWord(apiKey, usedWords = []) {
       messages: [
         {
           role: 'user',
-          content: `Pick one interesting, everyday English word for a word-guessing game (like a spelling/vocabulary game for adults). Not too obscure, not too trivial.${avoid}`,
+          content: `Pick one English word for a word-guessing game (like a spelling/vocabulary game for adults). ${difficultyBrief(difficulty)}${avoid}`,
         },
       ],
       tools: [TOOL],

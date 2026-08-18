@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ListRestart, Play, Settings as SettingsIcon, X } from 'lucide-react'
+import { Check, Coins, ListRestart, Play, Settings as SettingsIcon, X } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 import WordCard from './WordCard'
 import Settings from './Settings'
+import PointsPopup from './PointsPopup'
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60)
@@ -12,8 +13,20 @@ function formatTime(seconds) {
 }
 
 export default function GameScreen() {
-  const { phase, currentWord, loadingWord, correctCount, wordsToWin, timeLeft, startGame, skipWord, handleCorrect, playAgain } =
-    useGame()
+  const {
+    phase,
+    currentWord,
+    loadingWord,
+    correctCount,
+    wordsToWin,
+    timeLeft,
+    score,
+    lastPoints,
+    startGame,
+    skipWord,
+    handleCorrect,
+    playAgain,
+  } = useGame()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const cardRef = useRef(null)
 
@@ -30,7 +43,7 @@ export default function GameScreen() {
         </button>
         <p className="reflection-eyebrow">Spaces</p>
         <h1 className="reflection-text">Fill the gaps.</h1>
-        <p className="reflection-sub">Get 10 right before the clock runs out. Each one buys 30 more seconds.</p>
+        <p className="reflection-sub">Get 10 right before the clock runs out. Each one buys 15 more seconds.</p>
         <button type="button" className="btn btn-primary btn-icon tap-target" onClick={startGame}>
           <Play size={16} strokeWidth={2.25} />
           Start
@@ -45,7 +58,9 @@ export default function GameScreen() {
       <div className="game-screen game-screen-center">
         <p className="reflection-eyebrow">Spaces</p>
         <h1 className="reflection-text">10 for 10.</h1>
-        <p className="reflection-sub">You cleared the board with {formatTime(timeLeft)} left on the clock.</p>
+        <p className="reflection-sub">
+          You cleared the board with {formatTime(timeLeft)} left on the clock — {score} points.
+        </p>
         <button type="button" className="btn btn-primary btn-icon tap-target" onClick={playAgain}>
           <ListRestart size={16} strokeWidth={2.25} />
           Play again
@@ -60,7 +75,7 @@ export default function GameScreen() {
         <p className="reflection-eyebrow">Spaces</p>
         <h1 className="reflection-text">Time's up.</h1>
         <p className="reflection-sub">
-          {correctCount} of {wordsToWin} — close it out next time.
+          {correctCount} of {wordsToWin}, {score} points — close it out next time.
         </p>
         <button type="button" className="btn btn-primary btn-icon tap-target" onClick={playAgain}>
           <ListRestart size={16} strokeWidth={2.25} />
@@ -93,11 +108,18 @@ export default function GameScreen() {
           transition={{ duration: 0.4, ease: 'easeOut' }}
         />
       </div>
-      <p className="game-progress-label">
-        {correctCount} of {wordsToWin}
-      </p>
+      <div className="game-progress-row">
+        <p className="game-progress-label">
+          {correctCount} of {wordsToWin}
+        </p>
+        <p className="game-score">
+          <Coins size={13} strokeWidth={2.5} />
+          {score}
+        </p>
+      </div>
 
       <div className="game-stack">
+        <PointsPopup pointsEvent={lastPoints} />
         {currentWord && !loadingWord ? (
           <WordCard
             key={currentWord.word}

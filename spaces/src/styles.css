@@ -219,12 +219,27 @@
   background: var(--accent);
 }
 
+.game-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 4px;
+}
+
 .game-progress-label {
   color: var(--text-faint);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.03em;
-  padding: 8px 0 4px;
+}
+
+.game-score {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #d8b45e;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .game-stack {
@@ -234,6 +249,31 @@
   align-items: center;
   justify-content: center;
   min-height: 0;
+}
+
+.points-popup-anchor {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.points-popup {
+  position: absolute;
+  left: 50%;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: color-mix(in srgb, #d8b45e 22%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, #d8b45e 45%, transparent);
+  color: #f0cd7a;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
 }
 
 .game-buttons {

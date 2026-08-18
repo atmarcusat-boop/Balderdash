@@ -40,9 +40,27 @@ const WordCard = forwardRef(function WordCard({ item, onSkip, onCorrect }, ref) 
     .map((b, i) => (b.revealed ? null : i))
     .filter((i) => i !== null)
 
+  // Focus the first blank as soon as a new card is up. A couple of
+  // rAF-staggered retries because on some browsers a focus() call fired
+  // in the same tick the card mounts doesn't "stick" until after the
+  // first paint.
   useEffect(() => {
     const first = hiddenIndices[0]
-    if (first !== undefined) inputRefs.current[first]?.focus()
+    if (first === undefined) return undefined
+    let raf2
+    const tryFocus = () => {
+      const el = inputRefs.current[first]
+      if (el && document.activeElement !== el) el.focus()
+    }
+    tryFocus()
+    const raf1 = requestAnimationFrame(() => {
+      tryFocus()
+      raf2 = requestAnimationFrame(tryFocus)
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      if (raf2) cancelAnimationFrame(raf2)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.word])
 
