@@ -1,13 +1,15 @@
-name: Deploy Enough to GitHub Pages
+name: Deploy Enough + Spaces to GitHub Pages
 
 on:
   push:
     branches:
       - claude/enough-wellbeing-prototype-nsdn3l
+      - claude/spaces-word-game
       - main
     paths:
       - 'enough/**'
-      - '.github/workflows/deploy-enough.yml'
+      - 'spaces/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,14 +30,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: enough/package-lock.json
 
-      - name: Install dependencies
+      # ---------- Enough (root) ----------
+      - name: Install Enough dependencies
         working-directory: enough
         run: npm ci
 
-      - name: Build
+      - name: Build Enough
         working-directory: enough
         run: npm run build
         env:
@@ -46,11 +47,28 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: '309102506740'
           VITE_FIREBASE_APP_ID: 1:309102506740:web:c566e9dfcfa8c6add524a1
 
+      # ---------- Spaces (/spaces/ subpath) ----------
+      - name: Install Spaces dependencies
+        working-directory: spaces
+        run: npm ci
+
+      - name: Build Spaces
+        working-directory: spaces
+        run: npm run build
+
+      # ---------- Combine into one Pages artifact ----------
+      - name: Combine builds
+        run: |
+          mkdir -p combined-dist
+          cp -r enough/dist/. combined-dist/
+          mkdir -p combined-dist/spaces
+          cp -r spaces/dist/. combined-dist/spaces/
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: enough/dist
+          path: combined-dist
 
   deploy:
     needs: build

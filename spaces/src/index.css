@@ -1,0 +1,84 @@
+:root {
+  --bg: #14161c;
+  --bg-raised: #1b1e26;
+  --bg-card: #1f232c;
+  --border: #2a2e38;
+  --text: #ecebe6;
+  --text-muted: #9a9da8;
+  --text-faint: #6b6e78;
+  --accent: #8fb9ad;
+  --accent-soft: rgba(143, 185, 173, 0.16);
+  --danger: #c98f7a;
+  --partial-color: #b5a97e;
+
+  --section-bedrock: #6fa3b8;
+  --section-character: #c99a5b;
+  --section-balance: #b98a9a;
+  --section-human: #8fae7c;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+
+  --font: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 520px;
+  margin: 0 auto;
+  position: relative;
+  background:
+    radial-gradient(560px circle at 12% -8%, color-mix(in srgb, var(--section-bedrock) 13%, transparent), transparent 60%),
+    radial-gradient(560px circle at 108% 12%, color-mix(in srgb, var(--section-character) 11%, transparent), transparent 60%),
+    radial-gradient(640px circle at -8% 88%, color-mix(in srgb, var(--section-balance) 11%, transparent), transparent 60%),
+    radial-gradient(640px circle at 108% 102%, color-mix(in srgb, var(--section-human) 12%, transparent), transparent 60%),
+    var(--bg);
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+.tap-target {
+  -webkit-tap-highlight-color: transparent;
+}
