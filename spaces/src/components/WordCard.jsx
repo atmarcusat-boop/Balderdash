@@ -69,7 +69,7 @@ const WordCard = forwardRef(function WordCard({ item, onSkip, onCorrect }, ref) 
   }
 
   function handleChange(i, raw) {
-    const char = raw.replace(/[^a-zA-Z]/g, '').slice(-1)
+    const char = raw.replace(/[^a-zA-Z]/g, '').slice(-1).toLowerCase()
     setGuesses((prev) => {
       const next = [...prev]
       next[i] = char
@@ -183,7 +183,7 @@ const WordCard = forwardRef(function WordCard({ item, onSkip, onCorrect }, ref) 
                 value={guesses[i] || ''}
                 maxLength={1}
                 inputMode="text"
-                autoCapitalize="characters"
+                autoCapitalize="none"
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
