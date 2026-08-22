@@ -480,11 +480,11 @@ const CONFIG = {
 
   cacheDecimalPlaces: 3,      // ~110m grid for the "already asked about this corner" cache
 
-  // Narration layer: this is the single swappable seam. Today it's a keyless
-  // passthrough (real Wikipedia extract, unmodified). Point narrationEndpoint
-  // at a small backend that proxies an Anthropic API call to switch on
-  // persona-voiced narration without touching any other code.
-  narrationEndpoint: null,
+  // Narration layer: this is the single swappable seam. Points at the
+  // deployed Cloudflare Worker (see worker/) that proxies a Claude API
+  // call so real retrieved facts get persona-voiced narration instead of
+  // read verbatim. Set to null to fall back to the keyless passthrough.
+  narrationEndpoint: 'https://beau-narration-proxy.atmarcusat.workers.dev',
 
   wikipediaApi: 'https://en.wikipedia.org/w/api.php',
   overpassApi: 'https://overpass-api.de/api/interpreter', // OpenStreetMap enrichment — free, no key, fills gaps Wikipedia doesn't cover
