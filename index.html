@@ -424,8 +424,8 @@ html, body {
       <button class="toggle on" id="voiceToggle"></button>
     </div>
     <div class="settings-row">
-      <div><div class="label">Search radius</div><div class="hint" id="radiusHint">300 m</div></div>
-      <input type="range" id="radiusRange" min="100" max="600" step="25" value="300">
+      <div><div class="label">Search radius</div><div class="hint" id="radiusHint">400 m</div></div>
+      <input type="range" id="radiusRange" min="100" max="1200" step="50" value="400">
     </div>
     <div class="settings-row">
       <div><div class="label">Live refresh distance</div><div class="hint" id="moveHint">85 m</div></div>
@@ -474,9 +474,10 @@ const CONFIG = {
   buttonNameWorking: 'Listening…',
   buttonNameLive: 'Following',
 
-  radiusMeters: 300,          // how far to search around the user
-  maxResultsFetched: 20,      // cap on raw geosearch results per lookup
-  maxResultsShown: 8,         // cap on cards rendered/narrated per lookup
+  radiusMeters: 400,          // how far to search around the user
+  maxRadiusMeters: 1200,      // ceiling for the radius slider and for auto-widening on an empty result
+  maxResultsFetched: 20,      // cap on raw Wikipedia geosearch results per lookup (Overpass is bounded by radius instead)
+  maxResultsShown: 10,        // cap on cards rendered/narrated per lookup
 
   liveMoveThresholdMeters: 85,  // live mode: refresh once moved this far…
   liveTimeThresholdMs: 3 * 60 * 1000, // …or this long since the last lookup
@@ -491,6 +492,7 @@ const CONFIG = {
   narrationEndpoint: null,
 
   wikipediaApi: 'https://en.wikipedia.org/w/api.php',
+  overpassApi: 'https://overpass-api.de/api/interpreter', // OpenStreetMap enrichment — free, no key, fills gaps Wikipedia doesn't cover
 
   personas: [
     { id: 'plain', name: 'Plain facts', voice: { rate: 1.0, pitch: 1.0 },
@@ -510,7 +512,7 @@ const CONFIG = {
 
   categoryFilters: [
     { id: 'history',    label: 'History',       re: /histor|heritage|monument|memorial|battle|war\b|ancient|medieval|archaeolog|century/i },
-    { id: 'architecture', label: 'Architecture', re: /architect|building|tower|cathedral|church|castle|bridge|palace|structure|basilica|mosque|synagogue|chapel/i },
+    { id: 'architecture', label: 'Architecture', re: /architect|building|tower|cathedral|church|castle|bridge|palace|structure|basilica|mosque|synagogue|chapel|museum|gallery|worship/i },
     { id: 'musicFilm',  label: 'Music & Film',   re: /\bmusic|band\b|film|cinema|theatre|theater|opera|concert|studio|actor|composer|movie/i },
     { id: 'foodDrink',  label: 'Food & Drink',   re: /restaurant|caf[eé]|food|cuisine|brewery|winery|\bbar\b|market|drink|bakery|pub\b/i },
     { id: 'hiddenGems', label: 'Hidden gems',    re: null } // heuristic, see classify()
@@ -632,14 +634,14 @@ function renderMarkers(pois) {
     const marker = L.marker([poi.lat, poi.lon], {
       icon: L.divIcon({ className: '', html: `<div class="poi-pin"><span>${i + 1}</span></div>`, iconSize: [30, 30], iconAnchor: [15, 28] })
     }).addTo(map);
-    marker.on('click', () => focusCard(poi.pageid));
-    state.markers.set(poi.pageid, marker);
+    marker.on('click', () => focusCard(poi.id));
+    state.markers.set(poi.id, marker);
   });
 }
 
-function focusCard(pageid) {
+function focusCard(id) {
   document.querySelectorAll('.poi-card').forEach(el => el.classList.remove('active'));
-  const card = document.getElementById('card-' + pageid);
+  const card = document.getElementById('card-' + id);
   if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
   setSheetState('expanded');
 }
@@ -698,14 +700,15 @@ function geoErrorMessage(err) {
 }
 
 /* =========================================================================
-   Wikipedia geosearch + extracts + categories (single combined request)
+   Facts, source 1: Wikipedia geosearch + extracts + categories
+   (single combined request — real articles that carry their own coordinates)
    ========================================================================= */
-async function fetchNearby(lat, lon) {
+async function fetchWikipediaNearby(lat, lon, radius) {
   const params = new URLSearchParams({
     action: 'query', format: 'json', origin: '*',
     generator: 'geosearch',
     ggscoord: `${lat}|${lon}`,
-    ggsradius: String(CONFIG.radiusMeters),
+    ggsradius: String(radius),
     ggslimit: String(CONFIG.maxResultsFetched),
     ggsnamespace: '0',
     prop: 'extracts|coordinates|categories',
@@ -720,14 +723,147 @@ async function fetchNearby(lat, lon) {
   return pages
     .filter(p => p.coordinates && p.coordinates[0])
     .map(p => ({
+      id: 'wiki-' + p.pageid,
       pageid: p.pageid,
       title: p.title,
       extract: (p.extract || '').trim(),
       lat: p.coordinates[0].lat,
       lon: p.coordinates[0].lon,
       categories: (p.categories || []).map(c => c.title.replace(/^Category:/, '')),
-      url: 'https://en.wikipedia.org/?curid=' + p.pageid
+      url: 'https://en.wikipedia.org/?curid=' + p.pageid,
+      source: 'wikipedia'
     }));
+}
+
+/* =========================================================================
+   Facts, source 2: OpenStreetMap via the Overpass API — enrichment.
+   Wikipedia only covers places notable enough for their own article, which
+   thins out fast outside city centres. OSM has vastly denser tagging
+   (historic=*, tourism=*, memorials, cafes, small shops…), so this fills
+   the gaps in quieter areas. Still real, geolocated, tagged data — never
+   invented — just thinner facts than a Wikipedia paragraph when that's all
+   OSM has to offer.
+   ========================================================================= */
+function osmOverpassQuery(lat, lon, radius) {
+  const near = `(around:${radius},${lat},${lon})`;
+  return `[out:json][timeout:20];(
+    node["historic"]${near};
+    way["historic"]${near};
+    node["tourism"~"^(museum|artwork|gallery|attraction|viewpoint)$"]${near};
+    way["tourism"~"^(museum|artwork|gallery|attraction|viewpoint)$"]${near};
+    node["amenity"~"^(place_of_worship|theatre|cinema|arts_centre|cafe|restaurant|pub|bar|fast_food|marketplace)$"]${near};
+    way["amenity"~"^(place_of_worship|theatre|cinema|arts_centre|cafe|restaurant|pub|bar|fast_food|marketplace)$"]${near};
+    node["man_made"="memorial"]${near};
+    node["shop"~"^(bakery|deli|wine|butcher|chocolate)$"]${near};
+  );out center tags;`;
+}
+
+function osmCategoryLabels(tags) {
+  const labels = [];
+  if (tags.historic) labels.push('Historic ' + tags.historic.replace(/_/g, ' '));
+  if (tags.tourism) labels.push('Tourism ' + tags.tourism.replace(/_/g, ' '));
+  if (tags.amenity) labels.push('Amenity ' + tags.amenity.replace(/_/g, ' '));
+  if (tags.man_made) labels.push('Landmark ' + tags.man_made.replace(/_/g, ' '));
+  if (tags.shop) labels.push('Shop ' + tags.shop.replace(/_/g, ' '));
+  return labels;
+}
+
+function osmDescription(name, tags) {
+  const kind = tags.historic || tags.tourism || tags.amenity || tags.man_made || tags.shop;
+  const kindLabel = kind ? String(kind).replace(/_/g, ' ') : 'point of interest';
+  return `${name} — marked on OpenStreetMap as a ${kindLabel}.`;
+}
+
+function parseOsmWikipediaTag(val) {
+  if (!val) return null;
+  const m = val.match(/^([a-z]{2,3}):(.+)$/i);
+  if (m) return m[1].toLowerCase() === 'en' ? m[2] : null;
+  return val;
+}
+
+async function fetchOverpassNearby(lat, lon, radius) {
+  const res = await fetch(CONFIG.overpassApi, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'data=' + encodeURIComponent(osmOverpassQuery(lat, lon, radius))
+  });
+  if (!res.ok) throw new Error('OpenStreetMap request failed (' + res.status + ')');
+  const data = await res.json();
+  const elements = (data.elements || []).filter(el => el.tags && el.tags.name);
+  return elements
+    .map(el => {
+      const point = el.type === 'node' ? el : el.center;
+      if (!point || point.lat == null || point.lon == null) return null;
+      return {
+        id: 'osm-' + el.type + '-' + el.id,
+        pageid: null,
+        title: el.tags.name,
+        extract: osmDescription(el.tags.name, el.tags),
+        lat: point.lat,
+        lon: point.lon,
+        categories: osmCategoryLabels(el.tags),
+        url: `https://www.openstreetmap.org/${el.type}/${el.id}`,
+        osmWikipediaTag: el.tags.wikipedia || null,
+        source: 'osm'
+      };
+    })
+    .filter(Boolean);
+}
+
+/* Batched lookup of real Wikipedia extracts for OSM points that carry a
+   wikipedia= tag, so an OSM-discovered feature can still speak with a real
+   article's words instead of just its bare OSM tags, when one exists. */
+async function fetchWikipediaExtractsByTitle(titles) {
+  if (!titles.length) return {};
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    titles: titles.join('|'), redirects: '1',
+    prop: 'extracts', exintro: '1', explaintext: '1', exchars: '420', exlimit: 'max'
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) return {};
+  const data = await res.json();
+  if (!data.query) return {};
+  const chain = {};
+  titles.forEach(t => chain[t] = t);
+  (data.query.normalized || []).forEach(n => { for (const k in chain) if (chain[k] === n.from) chain[k] = n.to; });
+  (data.query.redirects || []).forEach(r => { for (const k in chain) if (chain[k] === r.from) chain[k] = r.to; });
+  const pagesByTitle = {};
+  Object.values(data.query.pages || {}).forEach(p => {
+    if (p.extract) pagesByTitle[p.title] = { extract: p.extract.trim(), pageid: p.pageid, url: 'https://en.wikipedia.org/?curid=' + p.pageid };
+  });
+  const out = {};
+  titles.forEach(t => { const hit = pagesByTitle[chain[t]]; if (hit) out[t] = hit; });
+  return out;
+}
+
+/* Merge both sources: real Wikipedia articles plus OSM enrichment, deduped
+   so the same real-world feature doesn't show up twice, and with any
+   wikipedia-tagged OSM point upgraded to its real article extract. */
+async function fetchAllNearby(lat, lon, radius) {
+  let wikiFailed = false, osmFailed = false;
+  const [wiki, osm] = await Promise.all([
+    fetchWikipediaNearby(lat, lon, radius).catch(() => { wikiFailed = true; return []; }),
+    fetchOverpassNearby(lat, lon, radius).catch(() => { osmFailed = true; return []; })
+  ]);
+
+  const DEDUPE_METERS = 25;
+  const osmUnique = osm.filter(o => !wiki.some(w => haversine(w.lat, w.lon, o.lat, o.lon) < DEDUPE_METERS));
+
+  const titlesNeeded = [];
+  osmUnique.forEach(o => {
+    const title = parseOsmWikipediaTag(o.osmWikipediaTag);
+    if (title) { o._wikiTitle = title; titlesNeeded.push(title); }
+  });
+  if (titlesNeeded.length) {
+    const extracts = await fetchWikipediaExtractsByTitle([...new Set(titlesNeeded)]).catch(() => ({}));
+    osmUnique.forEach(o => {
+      const hit = o._wikiTitle && extracts[o._wikiTitle];
+      if (hit) { o.extract = hit.extract; o.pageid = hit.pageid; o.url = hit.url; o.source = 'osm+wikipedia'; }
+    });
+  }
+
+  return { pois: wiki.concat(osmUnique), wikiFailed, osmFailed };
 }
 
 async function fetchFullExtract(pageid) {
@@ -831,12 +967,22 @@ async function runLookup(coords, opts) {
 
   const key = roundCoordKey(coords.latitude, coords.longitude);
   let pois;
+  let usedRadius = CONFIG.radiusMeters;
   try {
     if (state.cache.has(key)) {
       pois = state.cache.get(key);
     } else {
-      const raw = await fetchNearby(coords.latitude, coords.longitude);
-      pois = raw.map(p => {
+      let result = await fetchAllNearby(coords.latitude, coords.longitude, usedRadius);
+      const bothFailed = result.wikiFailed && result.osmFailed;
+      if (result.pois.length === 0 && !bothFailed && usedRadius < CONFIG.maxRadiusMeters) {
+        const widened = Math.min(Math.round(usedRadius * 3), CONFIG.maxRadiusMeters);
+        showToast(`Nothing within ${usedRadius}m — widening to ${widened}m…`);
+        result = await fetchAllNearby(coords.latitude, coords.longitude, widened);
+        usedRadius = widened;
+      }
+      if (result.pois.length === 0 && result.wikiFailed && result.osmFailed) throw new Error('network');
+
+      pois = result.pois.map(p => {
         const distance = haversine(coords.latitude, coords.longitude, p.lat, p.lon);
         const b = bearing(coords.latitude, coords.longitude, p.lat, p.lon);
         return Object.assign(p, { distance, bearingDeg: b, compass: compassLabel(b), tags: classify(p) });
@@ -844,7 +990,7 @@ async function runLookup(coords, opts) {
       state.cache.set(key, pois);
     }
   } catch (err) {
-    showToast('Couldn’t reach Wikipedia — check your connection.', true);
+    showToast('Couldn’t reach Wikipedia or OpenStreetMap — check your connection.', true);
     if (opts.live) markWorkingOverlay(false);
     return;
   }
@@ -866,7 +1012,7 @@ async function runLookup(coords, opts) {
     document.getElementById('emptyHint').hidden = false;
     document.getElementById('emptyHint').textContent = pois.length
       ? 'Found places nearby, but none match your current filters.'
-      : `Nothing catalogued within ${CONFIG.radiusMeters}m — try moving a little, or widen the radius in Settings.`;
+      : `Nothing on Wikipedia or OpenStreetMap within ${usedRadius}m — try moving a little, or widen the radius in Settings.`;
     setSheetState('peek');
   }
 
@@ -898,7 +1044,7 @@ async function renderCards(pois, persona) {
 
     const card = document.createElement('div');
     card.className = 'poi-card';
-    card.id = 'card-' + poi.pageid;
+    card.id = 'card-' + poi.id;
     const tagLabel = (CONFIG.categoryFilters.find(f => f.id === poi.tags[0]) || {}).label || 'Nearby';
     card.innerHTML = `
       <div class="poi-card-head">
@@ -911,10 +1057,10 @@ async function renderCards(pois, persona) {
       </div>
       <p class="poi-hook">${escapeHtml(poi.hook)}</p>
       <div class="poi-actions">
-        <button class="tell-more-btn" data-pageid="${poi.pageid}">Tell me more</button>
-        <button class="speak-btn" data-pageid="${poi.pageid}" title="Read this aloud">🔊</button>
+        <button class="tell-more-btn" data-id="${poi.id}">Tell me more</button>
+        <button class="speak-btn" data-id="${poi.id}" title="Read this aloud">🔊</button>
       </div>
-      <div class="poi-full" id="full-${poi.pageid}" hidden></div>
+      <div class="poi-full" id="full-${poi.id}" hidden></div>
     `;
     list.appendChild(card);
 
@@ -936,9 +1082,9 @@ function firstSentence(text, maxLen) {
 }
 
 async function onTellMore(e) {
-  const pageid = e.currentTarget.getAttribute('data-pageid');
-  const poi = state.currentPois.find(p => String(p.pageid) === String(pageid));
-  const full = document.getElementById('full-' + pageid);
+  const id = e.currentTarget.getAttribute('data-id');
+  const poi = state.currentPois.find(p => String(p.id) === String(id));
+  const full = document.getElementById('full-' + id);
   if (!poi || !full) return;
 
   if (!full.hidden) { full.hidden = true; return; }
@@ -948,11 +1094,14 @@ async function onTellMore(e) {
   full.classList.add('loading');
   full.textContent = 'Fetching more…';
   try {
-    if (!poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid);
+    if (poi.pageid && !poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid);
+    else if (!poi.fullExtract) poi.fullExtract = poi.extract;
     const persona = currentPersona();
     const deeper = await narrate(poi, persona, { full: true });
     full.classList.remove('loading');
-    full.innerHTML = `<p>${escapeHtml(deeper)}</p><span class="poi-source">Source: <a href="${poi.url}" target="_blank" rel="noopener">Wikipedia</a></span>`;
+    const sourceLabel = poi.pageid ? 'Wikipedia' : 'OpenStreetMap';
+    const note = poi.pageid ? '' : ' — no fuller article exists yet; this is everything currently tagged.';
+    full.innerHTML = `<p>${escapeHtml(deeper)}</p><span class="poi-source">Source: <a href="${poi.url}" target="_blank" rel="noopener">${sourceLabel}</a>${note}</span>`;
     full.dataset.loaded = '1';
     if (state.voiceOn) speak(deeper, persona);
   } catch (err) {
@@ -962,8 +1111,8 @@ async function onTellMore(e) {
 }
 
 function onSpeakCard(e) {
-  const pageid = e.currentTarget.getAttribute('data-pageid');
-  const poi = state.currentPois.find(p => String(p.pageid) === String(pageid));
+  const id = e.currentTarget.getAttribute('data-id');
+  const poi = state.currentPois.find(p => String(p.id) === String(id));
   if (!poi) return;
   cancelSpeech();
   speak(`${poi.title}. ${poi.hook}`, currentPersona());
