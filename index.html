@@ -381,7 +381,7 @@ html, body {
       <div class="ring"></div>
       <button class="main-btn" id="mainBtn">
         <span class="btn-icon" id="mainBtnIcon">🧭</span>
-        <span id="mainBtnLabel">Show Me</span>
+        <span id="mainBtnLabel">Guide Me</span>
       </button>
     </div>
     <div class="status-line" id="statusLine">Tap for a lookup · hold to follow you</div>
@@ -399,7 +399,7 @@ html, body {
       </div>
     </div>
     <div class="sheet-body" id="sheetBody">
-      <div class="empty-hint" id="emptyHint">Press <strong id="emptyHintBtnName">Show Me</strong> to find what's around you — real places, ordered by distance, read aloud as you go.</div>
+      <div class="empty-hint" id="emptyHint">Press <strong id="emptyHintBtnName">Guide Me</strong> to find what's around you — real places, ordered by distance, read aloud as you go.</div>
       <div id="cardsList"></div>
     </div>
   </div>
@@ -470,7 +470,7 @@ html, body {
    ========================================================================= */
 const CONFIG = {
   appName: 'Cicerone',
-  buttonName: 'Show Me',
+  buttonName: 'Guide Me',
   buttonNameWorking: 'Listening…',
   buttonNameLive: 'Following',
 
@@ -1174,7 +1174,7 @@ function setupSettingsModal() {
     applyNaming();
   });
   document.getElementById('buttonNameInput').addEventListener('change', e => {
-    CONFIG.buttonName = e.target.value.trim() || 'Show Me';
+    CONFIG.buttonName = e.target.value.trim() || 'Guide Me';
     saveSetting('buttonName', CONFIG.buttonName);
     applyNaming();
     if (state.mode === 'idle') setMode('idle');
