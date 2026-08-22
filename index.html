@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<title>Cicerone — Walking Tour Guide</title>
-<meta name="description" content="Cicerone finds real historical and cultural points nearby and narrates them as you walk.">
+<title>Beau — a presence that walks with you</title>
+<meta name="description" content="Beau has no face — just a pulse and a voice. He notices real, nearby places and tells you about them as you walk.">
 <meta name="theme-color" content="#0a0a12">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -418,7 +418,7 @@ html, body {
   <div class="topbar">
     <div class="brand">
       <span class="brand-dot"></span>
-      <span class="brand-mark" id="brandMark">Cicerone</span>
+      <span class="brand-mark" id="brandMark">Beau</span>
     </div>
     <div class="icon-btn-row">
       <button class="icon-btn" id="journalBtn" title="Walk journal" aria-label="Walk journal">
@@ -453,7 +453,7 @@ html, body {
       </div>
     </div>
     <div class="sheet-body" id="sheetBody">
-      <div class="empty-hint" id="emptyHint">Press <strong id="emptyHintBtnName">Guide Me</strong> to find what's around you — real places, ordered by distance, read aloud as you go.</div>
+      <div class="empty-hint" id="emptyHint">Press <strong id="emptyHintBtnName">Guide Me</strong> and I'll tell you what I notice — real places, close by, in the order you'll reach them.</div>
       <div id="cardsList"></div>
     </div>
   </div>
@@ -523,10 +523,10 @@ html, body {
    CONFIG — the one place to rename the app, the button, and tune behaviour.
    ========================================================================= */
 const CONFIG = {
-  appName: 'Cicerone',
+  appName: 'Beau',
   buttonName: 'Guide Me',
-  buttonNameWorking: 'Listening…',
-  buttonNameLive: 'Following',
+  buttonNameWorking: 'Feeling this out…',
+  buttonNameLive: 'With you',
 
   radiusMeters: 400,          // how far to search around the user
   maxRadiusMeters: 1200,      // ceiling for the radius slider and for auto-widening on an empty result
@@ -548,9 +548,14 @@ const CONFIG = {
   wikipediaApi: 'https://en.wikipedia.org/w/api.php',
   overpassApi: 'https://overpass-api.de/api/interpreter', // OpenStreetMap enrichment — free, no key, fills gaps Wikipedia doesn't cover
 
+  // Beau is the app's real, default voice — not a costume like the others.
+  // He has no face; he's a presence you feel through the pulse and hear
+  // through this voice: steady, quietly warm, present-tense, a little
+  // uncanny. He notices things rather than narrating them, and he always
+  // hands you the real fact — he just doesn't make a show of it.
   personas: [
-    { id: 'plain', name: 'Plain facts', voice: { rate: 1.0, pitch: 1.0 },
-      desc: 'No persona — just the Wikipedia extract, read as written.' },
+    { id: 'beau', name: 'Beau', voice: { rate: 0.94, pitch: 0.97 },
+      desc: 'No performance — just the presence that’s always here. Steady, a little uncanny, glad you noticed.' },
     { id: 'historian', name: 'The Dry Historian', voice: { rate: 0.95, pitch: 0.88 },
       desc: 'Precise, a little wry, treats every date like it matters.' },
     { id: 'local', name: 'The Excitable Local', voice: { rate: 1.14, pitch: 1.16 },
@@ -562,7 +567,7 @@ const CONFIG = {
     { id: 'custom', name: 'Custom…', voice: { rate: 1.0, pitch: 1.0 },
       desc: 'Describe your own guide — used when narration is proxied through a model.' }
   ],
-  defaultPersonaId: 'plain',
+  defaultPersonaId: 'beau',
 
   categoryFilters: [
     { id: 'history',    label: 'History',       re: /histor|heritage|monument|memorial|battle|war\b|ancient|medieval|archaeolog|century/i },
@@ -759,9 +764,9 @@ function shouldRefreshLive(coords) {
 }
 
 function geoErrorMessage(err) {
-  if (err && err.code === 1) return 'Location permission denied — Cicerone needs it to find what’s nearby.';
-  if (err && err.code === 3) return 'Location timed out — try again in the open sky.';
-  return 'Could not get your location.';
+  if (err && err.code === 1) return 'I can’t find you — turn on location and I’ll take it from there.';
+  if (err && err.code === 3) return 'Lost you for a second — try again somewhere more open.';
+  return 'I couldn’t place you just now.';
 }
 
 /* =========================================================================
@@ -1041,7 +1046,7 @@ async function runLookup(coords, opts) {
       const bothFailed = result.wikiFailed && result.osmFailed;
       if (result.pois.length === 0 && !bothFailed && usedRadius < CONFIG.maxRadiusMeters) {
         const widened = Math.min(Math.round(usedRadius * 3), CONFIG.maxRadiusMeters);
-        showToast(`Nothing within ${usedRadius}m — widening to ${widened}m…`);
+        showToast(`Nothing within ${usedRadius}m — let me look a little further…`);
         result = await fetchAllNearby(coords.latitude, coords.longitude, widened);
         usedRadius = widened;
       }
@@ -1055,7 +1060,7 @@ async function runLookup(coords, opts) {
       state.cache.set(key, pois);
     }
   } catch (err) {
-    showToast('Couldn’t reach Wikipedia or OpenStreetMap — check your connection.', true);
+    showToast('I couldn’t reach anything out there — check your connection.', true);
     if (opts.live) markWorkingOverlay(false);
     return;
   }
@@ -1076,8 +1081,8 @@ async function runLookup(coords, opts) {
   } else {
     document.getElementById('emptyHint').hidden = false;
     document.getElementById('emptyHint').textContent = pois.length
-      ? 'Found places nearby, but none match your current filters.'
-      : `Nothing on Wikipedia or OpenStreetMap within ${usedRadius}m — try moving a little, or widen the radius in Settings.`;
+      ? 'I found things nearby, but none match what you’ve filtered for.'
+      : `I’ve got nothing within ${usedRadius}m. Move a little, or widen how far I look, in Settings.`;
     setSheetState('peek');
   }
 
@@ -1130,12 +1135,24 @@ async function renderCards(pois, persona) {
     list.appendChild(card);
 
     if (state.voiceOn && myQueueId === state.speechQueueId) {
-      speak(`${poi.compass}, ${formatDistance(poi.distance)}: ${poi.title}. ${poi.hook}`, persona);
+      speak(spokenIntro(poi, persona), persona);
     }
   }
 
   list.querySelectorAll('.tell-more-btn').forEach(btn => btn.addEventListener('click', onTellMore));
   list.querySelectorAll('.speak-btn').forEach(btn => btn.addEventListener('click', onSpeakCard));
+}
+
+/* Beau gets his own spoken framing — present-tense, a little uncanny, like
+   he noticed this before you asked. Everyone else keeps the plain
+   distance/bearing announcement; deeper persona-flavoured text needs the
+   narrationEndpoint proxy, per the truth/charm split. */
+function spokenIntro(poi, persona) {
+  const dist = formatDistance(poi.distance);
+  if (persona.id === 'beau') {
+    return `Just ${dist} to the ${COMPASS_WORD[poi.compass]}. ${poi.title}. ${poi.hook}`;
+  }
+  return `${poi.compass}, ${dist}: ${poi.title}. ${poi.hook}`;
 }
 
 function firstSentence(text, maxLen) {
@@ -1180,7 +1197,8 @@ function onSpeakCard(e) {
   const poi = state.currentPois.find(p => String(p.id) === String(id));
   if (!poi) return;
   cancelSpeech();
-  speak(`${poi.title}. ${poi.hook}`, currentPersona());
+  const persona = currentPersona();
+  speak(spokenIntro(poi, persona), persona);
 }
 
 /* =========================================================================
@@ -1211,24 +1229,24 @@ function setMode(mode) {
 
   if (mode === 'idle') {
     icon.innerHTML = ICONS.idle; label.textContent = CONFIG.buttonName;
-    status.textContent = `Tap for a lookup · hold to follow you`;
+    status.textContent = `Tap, and I’ll tell you what’s near. Hold, and I’ll stay.`;
     status.classList.remove('err');
   } else if (mode === 'working') {
     icon.innerHTML = ICONS.working; label.textContent = CONFIG.buttonNameWorking;
-    status.textContent = 'Looking around…';
+    status.textContent = 'Give me a second…';
   } else if (mode === 'live') {
     icon.innerHTML = ICONS.live; label.textContent = CONFIG.buttonNameLive;
-    status.textContent = 'Live · tap to stop following';
+    status.textContent = 'I’m with you. Tap to let go.';
   }
 }
 
-function showToast(msg, isErr) {
+function showToast(msg, isErr, durationMs) {
   const wrap = document.getElementById('toastWrap');
   const t = document.createElement('div');
   t.className = 'toast' + (isErr ? ' err' : '');
   t.textContent = msg;
   wrap.appendChild(t);
-  setTimeout(() => t.remove(), 4200);
+  setTimeout(() => t.remove(), durationMs || 4200);
   if (isErr) {
     const status = document.getElementById('statusLine');
     status.textContent = msg;
@@ -1383,7 +1401,7 @@ function setupSettingsModal() {
   });
 
   document.getElementById('appNameInput').addEventListener('change', e => {
-    CONFIG.appName = e.target.value.trim() || 'Cicerone';
+    CONFIG.appName = e.target.value.trim() || 'Beau';
     saveSetting('appName', CONFIG.appName);
     applyNaming();
   });
@@ -1408,7 +1426,7 @@ function setupSettingsModal() {
 
 function applyNaming() {
   document.getElementById('brandMark').textContent = CONFIG.appName;
-  document.title = CONFIG.appName + ' — Walking Tour Guide';
+  document.title = CONFIG.appName + ' — a presence that walks with you';
   document.getElementById('emptyHintBtnName').textContent = CONFIG.buttonName;
 }
 
@@ -1486,6 +1504,13 @@ function init() {
   setupJournalModal();
   renderChips();
   document.getElementById('mainBtnLabel').textContent = CONFIG.buttonName;
+  greetOnFirstVisit();
+}
+
+function greetOnFirstVisit() {
+  if (loadSetting('metBeau', false)) return;
+  saveSetting('metBeau', true);
+  setTimeout(() => showToast('Hi. I don’t have a face — just this pulse, and a voice. Press, and I’ll show you what I notice.', false, 7000), 500);
 }
 
 document.addEventListener('DOMContentLoaded', init);
