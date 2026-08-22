@@ -479,7 +479,8 @@ const CONFIG = {
   radiusMeters: 400,          // how far to search around the user
   maxRadiusMeters: 1200,      // ceiling for the radius slider and for auto-widening on an empty result
   maxResultsFetched: 20,      // cap on raw Wikipedia geosearch results per lookup (Overpass is bounded by radius instead)
-  maxResultsShown: 10,        // cap on cards rendered/narrated per lookup
+  maxResultsShown: 10,        // cap on cards rendered per lookup
+  maxAutoNarrated: 3,         // only the closest few get read aloud automatically — the rest are still on screen, tap any card's speaker icon to hear it
 
   liveMoveThresholdMeters: 85,  // live mode: refresh once moved this far…
   liveTimeThresholdMs: 3 * 60 * 1000, // …or this long since the last lookup
@@ -1177,7 +1178,7 @@ async function renderCards(pois, persona) {
   for (let i = 0; i < pois.length; i++) {
     const poi = pois[i];
     const hook = await narrate(poi, persona, { full: false });
-    poi.hook = firstSentence(hook, 160);
+    poi.hook = shortFact(hook, 115);
 
     const card = document.createElement('div');
     card.className = 'poi-card';
@@ -1199,7 +1200,10 @@ async function renderCards(pois, persona) {
     `;
     list.appendChild(card);
 
-    if (state.voiceOn && myQueueId === state.speechQueueId) {
+    // Only the closest few get read aloud unprompted — a mate gives you the
+    // highlights, not an audio tour of the whole list. Everything else is
+    // still right there on screen, one tap away via its speaker icon.
+    if (state.voiceOn && i < CONFIG.maxAutoNarrated && myQueueId === state.speechQueueId) {
       speak(spokenIntro(poi, persona), persona);
     }
   }
@@ -1211,21 +1215,38 @@ async function renderCards(pois, persona) {
 /* Beau gets his own spoken framing — present-tense, a little uncanny, like
    he noticed this before you asked. Everyone else keeps the plain
    distance/bearing announcement; deeper persona-flavoured text needs the
-   narrationEndpoint proxy, per the truth/charm split. */
+   narrationEndpoint proxy, per the truth/charm split. Either way: never
+   restate the name if the fact itself already opens with it — nobody
+   talks like "Big Ben. Big Ben is..." */
 function spokenIntro(poi, persona) {
   const dist = formatDistance(poi.distance);
+  const leadsWithTitle = normalizeName(poi.hook.slice(0, poi.title.length + 15)).startsWith(normalizeName(poi.title));
   if (persona.id === 'beau') {
-    return `Just ${dist} to the ${COMPASS_WORD[poi.compass]}. ${poi.title}. ${poi.hook}`;
+    return leadsWithTitle
+      ? `${dist} ${COMPASS_WORD[poi.compass]} — ${poi.hook}`
+      : `${dist} ${COMPASS_WORD[poi.compass]} — ${poi.title}. ${poi.hook}`;
   }
-  return `${poi.compass}, ${dist}: ${poi.title}. ${poi.hook}`;
+  return leadsWithTitle
+    ? `${poi.compass}, ${dist}. ${poi.hook}`
+    : `${poi.compass}, ${dist}: ${poi.title}. ${poi.hook}`;
 }
 
-function firstSentence(text, maxLen) {
+/* A short, complete-sounding fact — never a mid-word ellipsis trail-off.
+   Prefers the first sentence if it's already short; otherwise cuts at the
+   last clean clause break (comma/semicolon) or, failing that, the last
+   whole word, and always closes with a period so it reads as finished,
+   not cut off. */
+function shortFact(text, targetChars) {
   if (!text) return '';
-  const m = text.match(/^.{1,}?[.!?](\s|$)/);
-  let s = m ? m[0].trim() : text;
-  if (s.length > maxLen) s = s.slice(0, maxLen).trim() + '…';
-  return s;
+  const clean = text.trim();
+  const m = clean.match(/^.{1,}?[.!?](?=\s|$)/);
+  const candidate = m ? m[0].trim() : clean;
+  if (candidate.length <= targetChars) return candidate;
+  const window = candidate.slice(0, targetChars);
+  const lastBreak = Math.max(window.lastIndexOf(','), window.lastIndexOf(';'));
+  if (lastBreak > targetChars * 0.4) return window.slice(0, lastBreak).trim() + '.';
+  const lastSpace = window.lastIndexOf(' ');
+  return (lastSpace > targetChars * 0.4 ? window.slice(0, lastSpace) : window).trim() + '.';
 }
 
 async function onTellMore(e) {
