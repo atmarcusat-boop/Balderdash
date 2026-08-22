@@ -70,19 +70,17 @@ html, body {
 .leaflet-control-zoom { display: none; }
 
 .poi-pin {
-  width: 26px; height: 26px; border-radius: 50%;
+  width: 14px; height: 14px; border-radius: 50%;
   background: var(--panel-2);
-  border: 2px solid var(--accent);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-  display: flex; align-items: center; justify-content: center;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  border: 2px solid var(--muted-2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
-.poi-pin span { font-family: var(--font-body); font-size: 11px; font-weight: 700; color: var(--accent-light); }
-.poi-pin.active {
-  border-color: var(--live);
-  box-shadow: 0 0 0 5px rgba(34,211,238,0.22), 0 2px 10px rgba(0,0,0,0.5);
+.poi-pin.featured {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border: 2px solid var(--accent-light);
+  box-shadow: 0 0 0 4px rgba(124,111,238,0.22), 0 2px 8px rgba(0,0,0,0.5);
 }
-.poi-pin.active span { color: var(--live-light); }
 
 /* ============ Top bar ============ */
 .topbar {
@@ -237,27 +235,14 @@ html, body {
 .empty-hint { color: var(--muted); font-size: 13px; padding: 6px 8px 20px; line-height: 1.5; }
 
 /* ============ POI cards ============ */
-.poi-card {
+.beau-passage {
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 13px 14px;
-  margin-bottom: 10px;
-  transition: border-color 0.15s ease;
+  padding: 16px 16px 14px;
 }
-.poi-card.active { border-color: var(--accent); }
-.poi-card-head { display: flex; align-items: flex-start; gap: 10px; }
-.poi-index {
-  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
-  background: transparent; border: 1.5px solid var(--accent-dim); color: var(--accent-light);
-  font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; margin-top: 2px;
-}
-.poi-title-wrap { flex: 1; min-width: 0; }
-.poi-title-wrap h3 { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--paper); line-height: 1.3; }
-.poi-meta { font-size: 11.5px; color: var(--muted); letter-spacing: 0.01em; }
-.poi-hook { font-size: 13.5px; line-height: 1.55; color: #d4d6e2; margin: 9px 0 8px; }
-.poi-actions { display: flex; align-items: center; gap: 10px; }
+.passage-text { font-size: 14.5px; line-height: 1.65; color: #d4d6e2; }
+.passage-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .tell-more-btn {
   background: none; border: none; color: var(--accent-light); font-size: 12.5px; font-weight: 600;
   cursor: pointer; padding: 4px 0;
@@ -270,8 +255,8 @@ html, body {
 .speak-btn svg { width: 16px; height: 16px; display: block; }
 .speak-btn:hover { color: var(--paper); }
 .poi-full {
-  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
-  font-size: 13px; line-height: 1.6; color: var(--muted);
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 13.5px; line-height: 1.6; color: var(--muted);
 }
 .poi-full.loading { font-style: italic; }
 .poi-source { display: block; margin-top: 8px; font-size: 11px; color: var(--muted-2); }
@@ -405,7 +390,14 @@ html, body {
     </div>
     <div class="sheet-body" id="sheetBody">
       <div class="empty-hint" id="emptyHint">Press <strong id="emptyHintBtnName">Beau</strong> and I'll tell you what I notice — real places, close by, in the order you'll reach them.</div>
-      <div id="cardsList"></div>
+      <div class="beau-passage" id="beauPassage" hidden>
+        <p class="passage-text" id="passageText"></p>
+        <div class="passage-actions">
+          <button class="tell-more-btn" id="passageMoreBtn">Tell me more</button>
+          <button class="speak-btn" id="passageSpeakBtn" title="Read this aloud"></button>
+        </div>
+        <div class="poi-full" id="passageFull" hidden></div>
+      </div>
     </div>
   </div>
 </div>
@@ -532,6 +524,7 @@ const state = {
   lastLookup: { pos: null, time: 0 },
   cache: new Map(),          // roundedCoordKey -> array of poi
   currentPois: [],
+  passagePois: [],   // the subset actually woven into Beau's current passage
   personaId: loadSetting('personaId', CONFIG.defaultPersonaId),
   customPersonaText: loadSetting('customPersonaText', ''),
   voiceOn: loadSetting('voiceOn', true) !== false,
@@ -644,22 +637,19 @@ function clearPoiMarkers() {
   state.markers.clear();
 }
 
-function renderMarkers(pois) {
+/* Featured pins (the ones Beau actually talks about) stand out; the rest
+   are just there for spatial sense — tap one for its name, nothing more. */
+function renderMarkers(pois, featuredIds) {
   clearPoiMarkers();
-  pois.forEach((poi, i) => {
+  pois.forEach(poi => {
+    const featured = featuredIds.has(poi.id);
     const marker = L.marker([poi.lat, poi.lon], {
-      icon: L.divIcon({ className: '', html: `<div class="poi-pin"><span>${i + 1}</span></div>`, iconSize: [26, 26], iconAnchor: [13, 13] })
+      icon: L.divIcon({ className: '', html: `<div class="poi-pin${featured ? ' featured' : ''}"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] })
     }).addTo(map);
-    marker.on('click', () => focusCard(poi.id));
+    if (featured) marker.on('click', () => setSheetState('expanded'));
+    else marker.bindPopup(escapeHtml(poi.title));
     state.markers.set(poi.id, marker);
   });
-}
-
-function focusCard(id) {
-  document.querySelectorAll('.poi-card').forEach(el => el.classList.remove('active'));
-  const card = document.getElementById('card-' + id);
-  if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-  setSheetState('expanded');
 }
 
 /* =========================================================================
@@ -1136,14 +1126,15 @@ async function runLookup(coords, opts) {
 
   const shown = pois.slice(0, CONFIG.maxResultsShown);
   state.currentPois = shown;
+  const featuredIds = new Set(shown.slice(0, CONFIG.maxAutoNarrated).map(p => p.id));
 
-  renderMarkers(shown);
+  renderMarkers(shown, featuredIds);
   const persona = currentPersona();
-  await renderCards(shown, persona);
+  await renderPassage(shown, persona);
 
   if (shown.length) {
     setSheetState('expanded');
-    logJournalEntry(coords, shown);
+    logJournalEntry(coords, state.passagePois);
   } else {
     document.getElementById('emptyHint').hidden = false;
     document.getElementById('emptyHint').textContent = `I’ve got nothing within ${usedRadius}m. Move a little, or widen how far I look, in Settings.`;
@@ -1159,76 +1150,62 @@ function markWorkingOverlay(on) {
 }
 
 /* =========================================================================
-   Cards
+   Passage — one continuous block of text, not a list. Beau mentions the
+   closest few places, woven into a single paragraph with a spatial
+   connector ahead of each real fact ("A bit further southwest: ..."),
+   read aloud as one utterance. Everything found still gets a pin on the
+   map (so the spatial picture is complete), but only the places actually
+   in the passage get a name in either the text or the audio — the rest
+   are tap-a-pin-for-its-name only. See passageFragment() and
+   CONFIG.maxAutoNarrated for the cap that keeps this short.
    ========================================================================= */
-async function renderCards(pois, persona) {
-  const list = document.getElementById('cardsList');
+async function renderPassage(pois, persona) {
   const emptyHint = document.getElementById('emptyHint');
+  const passageEl = document.getElementById('beauPassage');
+  const textEl = document.getElementById('passageText');
+  const fullEl = document.getElementById('passageFull');
+
   emptyHint.hidden = pois.length > 0;
-  list.innerHTML = '';
+  passageEl.hidden = pois.length === 0;
+  fullEl.hidden = true;
+  fullEl.dataset.loaded = '';
   document.getElementById('sheetCount').textContent = pois.length ? pois.length + (pois.length === 1 ? ' place' : ' places') : '';
 
   cancelSpeech();
-  const myQueueId = ++state.speechQueueId;
+  state.passagePois = [];
+  if (!pois.length) return;
 
-  // Chase down real stories for thin OSM points before rendering anything —
-  // in parallel, so it costs wall-clock time once, not once per card.
-  await Promise.all(pois.filter(p => p.source === 'osm').map(enrichThinPoi));
+  // Chase down real stories for thin OSM points before writing anything —
+  // in parallel, so it costs wall-clock time once, not once per place.
+  const narrated = pois.slice(0, CONFIG.maxAutoNarrated);
+  await Promise.all(narrated.filter(p => p.source === 'osm').map(enrichThinPoi));
 
-  for (let i = 0; i < pois.length; i++) {
-    const poi = pois[i];
+  for (const poi of narrated) {
     const hook = await narrate(poi, persona, { full: false });
     poi.hook = shortFact(hook, 115);
-
-    const card = document.createElement('div');
-    card.className = 'poi-card';
-    card.id = 'card-' + poi.id;
-    card.innerHTML = `
-      <div class="poi-card-head">
-        <span class="poi-index">${i + 1}</span>
-        <div class="poi-title-wrap">
-          <h3>${escapeHtml(poi.title)}</h3>
-          <span class="poi-meta">${poi.compass} · ${COMPASS_WORD[poi.compass]} · ${formatDistance(poi.distance)}</span>
-        </div>
-      </div>
-      <p class="poi-hook">${escapeHtml(poi.hook)}</p>
-      <div class="poi-actions">
-        <button class="tell-more-btn" data-id="${poi.id}">Tell me more</button>
-        <button class="speak-btn" data-id="${poi.id}" title="Read this aloud">${ICONS.speaker}</button>
-      </div>
-      <div class="poi-full" id="full-${poi.id}" hidden></div>
-    `;
-    list.appendChild(card);
-
-    // Only the closest few get read aloud unprompted — a mate gives you the
-    // highlights, not an audio tour of the whole list. Everything else is
-    // still right there on screen, one tap away via its speaker icon.
-    if (state.voiceOn && i < CONFIG.maxAutoNarrated && myQueueId === state.speechQueueId) {
-      speak(spokenIntro(poi, persona), persona);
-    }
   }
+  state.passagePois = narrated;
 
-  list.querySelectorAll('.tell-more-btn').forEach(btn => btn.addEventListener('click', onTellMore));
-  list.querySelectorAll('.speak-btn').forEach(btn => btn.addEventListener('click', onSpeakCard));
+  const passage = narrated.map((poi, i) => passageFragment(poi, i)).join(' ');
+  textEl.textContent = passage;
+
+  if (state.voiceOn) speak(passage, persona);
 }
 
-/* Beau gets his own spoken framing — present-tense, a little uncanny, like
-   he noticed this before you asked. Everyone else keeps the plain
-   distance/bearing announcement; deeper persona-flavoured text needs the
-   narrationEndpoint proxy, per the truth/charm split. Either way: never
-   restate the name if the fact itself already opens with it — nobody
-   talks like "Big Ben. Big Ben is..." */
-function spokenIntro(poi, persona) {
-  const dist = formatDistance(poi.distance);
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+/* One sentence-ish fragment per place: a short spatial connector, then the
+   real fact. Never restates the name if the fact already opens with it —
+   nobody talks like "Big Ben. Big Ben is...". */
+function passageFragment(poi, i) {
+  const compassWord = COMPASS_WORD[poi.compass];
+  const connector = poi.distance < 15 ? 'Right where you are'
+    : i === 0 ? `${capitalize(compassWord)} of you`
+    : i === 1 ? `A bit further ${compassWord}`
+    : i === 2 ? `And past that, to the ${compassWord}`
+    : `Also nearby, to the ${compassWord}`;
   const leadsWithTitle = normalizeName(poi.hook.slice(0, poi.title.length + 15)).startsWith(normalizeName(poi.title));
-  if (persona.id === 'beau') {
-    return leadsWithTitle
-      ? `${dist} ${COMPASS_WORD[poi.compass]} — ${poi.hook}`
-      : `${dist} ${COMPASS_WORD[poi.compass]} — ${poi.title}. ${poi.hook}`;
-  }
-  return leadsWithTitle
-    ? `${poi.compass}, ${dist}. ${poi.hook}`
-    : `${poi.compass}, ${dist}: ${poi.title}. ${poi.hook}`;
+  return leadsWithTitle ? `${connector}: ${poi.hook}` : `${connector}: ${poi.title} — ${poi.hook}`;
 }
 
 /* A short, complete-sounding fact — never a mid-word ellipsis trail-off.
@@ -1249,42 +1226,50 @@ function shortFact(text, targetChars) {
   return (lastSpace > targetChars * 0.4 ? window.slice(0, lastSpace) : window).trim() + '.';
 }
 
-async function onTellMore(e) {
-  const id = e.currentTarget.getAttribute('data-id');
-  const poi = state.currentPois.find(p => String(p.id) === String(id));
-  const full = document.getElementById('full-' + id);
-  if (!poi || !full) return;
+/* One combined deeper passage for every place in the current one, not a
+   fuller paragraph per place — still a block of text, just a longer one. */
+async function onPassageMore() {
+  const fullEl = document.getElementById('passageFull');
+  const pois = state.passagePois;
+  if (!pois.length) return;
 
-  if (!full.hidden) { full.hidden = true; return; }
-  full.hidden = false;
+  if (!fullEl.hidden) { fullEl.hidden = true; return; }
+  fullEl.hidden = false;
+  if (fullEl.dataset.loaded === '1') return;
 
-  if (full.dataset.loaded === '1') return;
-  full.classList.add('loading');
-  full.textContent = 'Fetching more…';
+  fullEl.classList.add('loading');
+  fullEl.textContent = 'Fetching more…';
   try {
-    if (poi.pageid && !poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid);
-    else if (!poi.fullExtract) poi.fullExtract = poi.extract;
     const persona = currentPersona();
-    const deeper = await narrate(poi, persona, { full: true });
-    full.classList.remove('loading');
-    const sourceLabel = poi.pageid ? 'Wikipedia' : (poi.source === 'osm+wikidata' ? 'Wikidata' : 'OpenStreetMap');
-    const note = poi.pageid ? '' : ' — that’s everything I know about this one.';
-    full.innerHTML = `<p>${escapeHtml(deeper)}</p><span class="poi-source">Source: <a href="${poi.url}" target="_blank" rel="noopener">${sourceLabel}</a>${note}</span>`;
-    full.dataset.loaded = '1';
-    if (state.voiceOn) speak(deeper, persona);
+    const fragments = [];
+    for (const poi of pois) {
+      if (poi.pageid && !poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid).catch(() => poi.extract);
+      else if (!poi.fullExtract) poi.fullExtract = poi.extract;
+      const deeper = await narrate(poi, persona, { full: true });
+      fragments.push(`${poi.title}: ${deeper}`);
+    }
+    const combined = fragments.join(' ');
+    fullEl.classList.remove('loading');
+    const sourceLine = pois.map(p => {
+      const label = p.pageid ? 'Wikipedia' : (p.source === 'osm+wikidata' ? 'Wikidata' : 'OpenStreetMap');
+      return `<a href="${p.url}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a> (${label})`;
+    }).join(' · ');
+    fullEl.innerHTML = `<p>${escapeHtml(combined)}</p><span class="poi-source">Sources: ${sourceLine}</span>`;
+    fullEl.dataset.loaded = '1';
+    if (state.voiceOn) speak(combined, persona);
   } catch (err) {
-    full.classList.remove('loading');
-    full.textContent = 'Couldn’t fetch more detail right now.';
+    fullEl.classList.remove('loading');
+    fullEl.textContent = 'Couldn’t fetch more detail right now.';
   }
 }
 
-function onSpeakCard(e) {
-  const id = e.currentTarget.getAttribute('data-id');
-  const poi = state.currentPois.find(p => String(p.id) === String(id));
-  if (!poi) return;
+function onPassageSpeak() {
+  const fullEl = document.getElementById('passageFull');
+  const textEl = document.getElementById('passageText');
   cancelSpeech();
   const persona = currentPersona();
-  speak(spokenIntro(poi, persona), persona);
+  const spoken = (!fullEl.hidden && fullEl.dataset.loaded === '1') ? fullEl.querySelector('p').textContent : textEl.textContent;
+  speak(spoken, persona);
 }
 
 /* =========================================================================
@@ -1556,6 +1541,9 @@ function init() {
   setupSheet();
   setupSettingsModal();
   setupJournalModal();
+  document.getElementById('passageSpeakBtn').innerHTML = ICONS.speaker;
+  document.getElementById('passageMoreBtn').addEventListener('click', onPassageMore);
+  document.getElementById('passageSpeakBtn').addEventListener('click', onPassageSpeak);
   document.getElementById('mainBtnLabel').textContent = CONFIG.buttonName;
   greetOnFirstVisit();
 }
