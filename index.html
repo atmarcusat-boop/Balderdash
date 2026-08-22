@@ -57,6 +57,7 @@ html, body {
 #map {
   position: absolute;
   inset: 0;
+  z-index: 0; /* contains Leaflet's internal panes (markerPane etc. run up to z-index 700) so Beau never floats above the topbar/sheet */
   background: var(--ink-2);
 }
 .leaflet-control-attribution {
@@ -67,25 +68,6 @@ html, body {
 }
 .leaflet-control-attribution a { color: var(--accent-light) !important; }
 .leaflet-control-zoom { display: none; }
-
-.user-dot {
-  position: relative;
-  width: 14px; height: 14px; border-radius: 50%;
-  background: var(--live);
-  border: 2px solid var(--ink);
-  box-shadow: 0 0 0 4px rgba(34,211,238,0.22);
-}
-.user-dot::after {
-  content: '';
-  position: absolute; inset: -11px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(34,211,238,0.45);
-  animation: user-pulse 2.4s ease-out infinite;
-}
-@keyframes user-pulse {
-  0% { transform: scale(0.55); opacity: 0.9; }
-  100% { transform: scale(1.7); opacity: 0; }
-}
 
 .poi-pin {
   width: 26px; height: 26px; border-radius: 50%;
@@ -620,7 +602,7 @@ const ICONS = {
 /* =========================================================================
    Map
    ========================================================================= */
-let map, userMarker, accuracyCircle;
+let map, beauMarker, accuracyCircle;
 function initMap() {
   map = L.map('map', { zoomControl: false, attributionControl: true }).setView([51.5074, -0.1278], 15);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -630,17 +612,27 @@ function initMap() {
   }).addTo(map);
 }
 
-function updateUserMarker(lat, lon, accuracy) {
+/* Beau starts as a fixed on-screen control — there has to be something to
+   press before we know where the user is, since location is never
+   requested until pressed. The instant a real coordinate arrives, he's
+   moved — the same DOM node, listeners and all, not a re-render — onto
+   the map itself, anchored to that coordinate. From then on he's genuinely
+   where you are, not a toolbar button that talks about your location. */
+function updateBeauMarker(lat, lon, accuracy) {
   const latlng = [lat, lon];
-  if (!userMarker) {
-    userMarker = L.marker(latlng, {
-      icon: L.divIcon({ className: '', html: '<div class="user-dot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }),
+  if (!beauMarker) {
+    beauMarker = L.marker(latlng, {
+      icon: L.divIcon({ className: '', html: '<div class="beau-slot"></div>', iconSize: [100, 100], iconAnchor: [50, 50] }),
       zIndexOffset: 1000
     }).addTo(map);
+    const el = beauMarker.getElement();
+    L.DomEvent.disableClickPropagation(el);
+    L.DomEvent.disableScrollPropagation(el);
+    el.querySelector('.beau-slot').replaceWith(document.getElementById('mainBtnWrap'));
     accuracyCircle = L.circle(latlng, { radius: accuracy || 30, color: '#22d3ee', weight: 1, fillOpacity: 0.06 }).addTo(map);
     map.setView(latlng, 16);
   } else {
-    userMarker.setLatLng(latlng);
+    beauMarker.setLatLng(latlng);
     accuracyCircle.setLatLng(latlng);
     accuracyCircle.setRadius(accuracy || 30);
   }
@@ -697,7 +689,7 @@ function stopWatch() {
 
 function onWatchTick(coords) {
   state.userPos = coords;
-  updateUserMarker(coords.latitude, coords.longitude, coords.accuracy);
+  updateBeauMarker(coords.latitude, coords.longitude, coords.accuracy);
   if (state.mode !== 'live') return;
 
   const now = Date.now();
@@ -1080,7 +1072,7 @@ async function doSingleLookup() {
   try {
     const coords = await getPosition();
     state.userPos = coords;
-    updateUserMarker(coords.latitude, coords.longitude, coords.accuracy);
+    updateBeauMarker(coords.latitude, coords.longitude, coords.accuracy);
     await runLookup(coords, { live: false });
   } catch (err) {
     showToast(err.message || geoErrorMessage(err), true);
@@ -1095,7 +1087,7 @@ function toggleLiveOn() {
   startWatch();
   getPosition().then(coords => {
     state.userPos = coords;
-    updateUserMarker(coords.latitude, coords.longitude, coords.accuracy);
+    updateBeauMarker(coords.latitude, coords.longitude, coords.accuracy);
     runLookup(coords, { live: true });
   }).catch(err => showToast(err.message || geoErrorMessage(err), true));
 }
