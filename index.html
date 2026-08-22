@@ -547,6 +547,8 @@ const CONFIG = {
 
   wikipediaApi: 'https://en.wikipedia.org/w/api.php',
   overpassApi: 'https://overpass-api.de/api/interpreter', // OpenStreetMap enrichment — free, no key, fills gaps Wikipedia doesn't cover
+  wikidataApi: 'https://www.wikidata.org/w/api.php',       // structured facts for things without a full Wikipedia article
+  wikidataEntityData: 'https://www.wikidata.org/wiki/Special:EntityData',
 
   // Beau is the app's real, default voice — not a costume like the others.
   // He has no face; he's a presence you feel through the pulse and hear
@@ -917,6 +919,7 @@ async function fetchOverpassNearby(lat, lon, radius) {
         categories: osmCategoryLabels(el.tags),
         url: `https://www.openstreetmap.org/${el.type}/${el.id}`,
         osmWikipediaTag: el.tags.wikipedia || null,
+        osmWikidataTag: el.tags.wikidata || null,
         source: 'osm'
       };
     })
@@ -977,6 +980,107 @@ async function fetchAllNearby(lat, lon, radius) {
   }
 
   return { pois: wiki.concat(osmUnique), wikiFailed, osmFailed };
+}
+
+/* =========================================================================
+   Deep enrichment for thin OSM points — finding the actual story.
+   A bare OSM tag ("historic=memorial") isn't a story, it's a label. This
+   chases down real, retrieved facts wherever they exist online — still
+   never inventing anything — trying, in order:
+     1. Wikidata, via the OSM point's own wikidata= tag
+     2. Wikidata, found by searching its name
+     3. Wikipedia's own full-text search, for an article that exists but
+        isn't geotagged (common for institutions, colleges, etc.)
+   Whenever the resolved Wikidata item itself links to a full English
+   Wikipedia article, that article's real prose is used in preference to
+   Wikidata's one-line description. Every match is checked against the
+   OSM point's name before being trusted, so a wrong match is skipped
+   rather than shown as fact.
+   ========================================================================= */
+function normalizeName(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function namesLikelyMatch(a, b) {
+  const na = normalizeName(a), nb = normalizeName(b);
+  if (!na || !nb) return false;
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  const wa = new Set(na.split(' ').filter(w => w.length > 2));
+  const wb = new Set(nb.split(' ').filter(w => w.length > 2));
+  if (!wa.size || !wb.size) return false;
+  let overlap = 0;
+  wa.forEach(w => { if (wb.has(w)) overlap++; });
+  return overlap / Math.min(wa.size, wb.size) >= 0.6;
+}
+
+async function fetchWikidataEntity(qid) {
+  const res = await fetch(`${CONFIG.wikidataEntityData}/${qid}.json`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const entity = data.entities && data.entities[qid];
+  if (!entity) return null;
+  const enwiki = entity.sitelinks && entity.sitelinks.enwiki;
+  const description = entity.descriptions && entity.descriptions.en && entity.descriptions.en.value;
+  let year = null;
+  const inception = entity.claims && entity.claims.P571 && entity.claims.P571[0];
+  const t = inception && inception.mainsnak && inception.mainsnak.datavalue && inception.mainsnak.datavalue.value && inception.mainsnak.datavalue.value.time;
+  if (t) { const m = t.match(/^\+?(-?\d{1,5})-/); if (m) year = m[1]; }
+  return { qid, description, year, enwikiTitle: enwiki ? enwiki.title : null };
+}
+
+async function searchWikidataByName(name) {
+  const params = new URLSearchParams({ action: 'wbsearchentities', search: name, language: 'en', format: 'json', origin: '*', limit: '3', type: 'item' });
+  const res = await fetch(`${CONFIG.wikidataApi}?${params.toString()}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const match = (data.search || []).find(c => namesLikelyMatch(name, c.label));
+  return match ? match.id : null;
+}
+
+async function searchWikipediaByName(name) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    generator: 'search', gsrsearch: name, gsrlimit: '1', gsrnamespace: '0',
+    prop: 'extracts', exintro: '1', explaintext: '1', exchars: '500', exlimit: 'max'
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const page = (data.query && data.query.pages) ? Object.values(data.query.pages)[0] : null;
+  if (!page || !page.extract || !namesLikelyMatch(name, page.title)) return null;
+  return { pageid: page.pageid, extract: page.extract.trim(), url: 'https://en.wikipedia.org/?curid=' + page.pageid };
+}
+
+async function applyWikidataEnrichment(poi, qid) {
+  const entity = await fetchWikidataEntity(qid).catch(() => null);
+  if (!entity) return;
+  if (entity.enwikiTitle) {
+    const extracts = await fetchWikipediaExtractsByTitle([entity.enwikiTitle]).catch(() => ({}));
+    const hit = extracts[entity.enwikiTitle];
+    if (hit) { poi.pageid = hit.pageid; poi.extract = hit.extract; poi.url = hit.url; poi.source = 'osm+wikidata+wikipedia'; return; }
+  }
+  if (entity.description) {
+    poi.extract = entity.year ? `${poi.title} — ${entity.description}, since ${entity.year}.` : `${poi.title} — ${entity.description}.`;
+    poi.url = `https://www.wikidata.org/wiki/${qid}`;
+    poi.source = 'osm+wikidata';
+  }
+}
+
+async function enrichThinPoi(poi) {
+  if (poi._enriched || poi.source !== 'osm') return;
+  poi._enriched = true;
+  try {
+    if (poi.osmWikidataTag) {
+      await applyWikidataEnrichment(poi, poi.osmWikidataTag);
+      if (poi.source !== 'osm') return;
+    }
+    const foundQid = await searchWikidataByName(poi.title).catch(() => null);
+    if (foundQid) {
+      await applyWikidataEnrichment(poi, foundQid);
+      if (poi.source !== 'osm') return;
+    }
+    const hit = await searchWikipediaByName(poi.title).catch(() => null);
+    if (hit) { poi.pageid = hit.pageid; poi.extract = hit.extract; poi.url = hit.url; poi.source = 'osm+wikipedia-search'; }
+  } catch (e) { /* keep the existing tour-guide-phrased fallback */ }
 }
 
 async function fetchFullExtract(pageid) {
@@ -1150,6 +1254,10 @@ async function renderCards(pois, persona) {
   cancelSpeech();
   const myQueueId = ++state.speechQueueId;
 
+  // Chase down real stories for thin OSM points before rendering anything —
+  // in parallel, so it costs wall-clock time once, not once per card.
+  await Promise.all(pois.filter(p => p.source === 'osm').map(enrichThinPoi));
+
   for (let i = 0; i < pois.length; i++) {
     const poi = pois[i];
     const hook = await narrate(poi, persona, { full: false });
@@ -1224,7 +1332,7 @@ async function onTellMore(e) {
     const persona = currentPersona();
     const deeper = await narrate(poi, persona, { full: true });
     full.classList.remove('loading');
-    const sourceLabel = poi.pageid ? 'Wikipedia' : 'OpenStreetMap';
+    const sourceLabel = poi.pageid ? 'Wikipedia' : (poi.source === 'osm+wikidata' ? 'Wikidata' : 'OpenStreetMap');
     const note = poi.pageid ? '' : ' — that’s everything I know about this one.';
     full.innerHTML = `<p>${escapeHtml(deeper)}</p><span class="poi-source">Source: <a href="${poi.url}" target="_blank" rel="noopener">${sourceLabel}</a>${note}</span>`;
     full.dataset.loaded = '1';
