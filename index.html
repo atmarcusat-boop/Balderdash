@@ -814,6 +814,12 @@ async function fetchWikipediaNearby(lat, lon, radius) {
    invented — just thinner facts than a Wikipedia paragraph when that's all
    OSM has to offer.
    ========================================================================= */
+/* Deliberately narrow: this is a tour guide, not a business directory.
+   Only categories that are inherently guide-worthy on their own — a
+   history/culture reason to stop, not just "there's a shop here". No
+   cafes, restaurants, pubs, or retail: those only belong in the guide
+   when they're notable enough to have their own Wikipedia article, which
+   the Wikipedia source already handles. */
 function osmOverpassQuery(lat, lon, radius) {
   const near = `(around:${radius},${lat},${lon})`;
   return `[out:json][timeout:20];(
@@ -821,10 +827,9 @@ function osmOverpassQuery(lat, lon, radius) {
     way["historic"]${near};
     node["tourism"~"^(museum|artwork|gallery|attraction|viewpoint)$"]${near};
     way["tourism"~"^(museum|artwork|gallery|attraction|viewpoint)$"]${near};
-    node["amenity"~"^(place_of_worship|theatre|cinema|arts_centre|cafe|restaurant|pub|bar|fast_food|marketplace)$"]${near};
-    way["amenity"~"^(place_of_worship|theatre|cinema|arts_centre|cafe|restaurant|pub|bar|fast_food|marketplace)$"]${near};
+    node["amenity"~"^(place_of_worship|theatre|cinema|arts_centre)$"]${near};
+    way["amenity"~"^(place_of_worship|theatre|cinema|arts_centre)$"]${near};
     node["man_made"="memorial"]${near};
-    node["shop"~"^(bakery|deli|wine|butcher|chocolate)$"]${near};
   );out center tags;`;
 }
 
@@ -834,14 +839,52 @@ function osmCategoryLabels(tags) {
   if (tags.tourism) labels.push('Tourism ' + tags.tourism.replace(/_/g, ' '));
   if (tags.amenity) labels.push('Amenity ' + tags.amenity.replace(/_/g, ' '));
   if (tags.man_made) labels.push('Landmark ' + tags.man_made.replace(/_/g, ' '));
-  if (tags.shop) labels.push('Shop ' + tags.shop.replace(/_/g, ' '));
   return labels;
 }
 
+/* Picks a stable-per-place phrasing so the same spot always reads the same
+   way, but different spots don't all sound like the same template. Still
+   only ever states the real tag — no invented detail, just a guide's turn
+   of phrase instead of a database dump. */
+function pickPhrase(options, seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return options[h % options.length];
+}
+
 function osmDescription(name, tags) {
-  const kind = tags.historic || tags.tourism || tags.amenity || tags.man_made || tags.shop;
-  const kindLabel = kind ? String(kind).replace(/_/g, ' ') : 'point of interest';
-  return `${name} — marked on OpenStreetMap as a ${kindLabel}.`;
+  const label = v => String(v).replace(/_/g, ' ');
+  if (tags.historic) {
+    const k = label(tags.historic);
+    return pickPhrase([
+      `${name} — a ${k}, still here.`,
+      `There's a ${k} on this spot: ${name}.`,
+      `${name}, a ${k} worth pausing for.`
+    ], name);
+  }
+  if (tags.man_made === 'memorial') {
+    return pickPhrase([
+      `A memorial here: ${name}.`,
+      `${name} — easy to walk past, worth not doing.`
+    ], name);
+  }
+  if (tags.tourism) {
+    const k = label(tags.tourism);
+    return pickPhrase([
+      `${name}, a ${k} worth a look.`,
+      `Just here: ${name}, a ${k}.`
+    ], name);
+  }
+  if (tags.amenity === 'place_of_worship') {
+    return pickPhrase([
+      `${name} stands here.`,
+      `${name} — a place of worship, right on your path.`
+    ], name);
+  }
+  if (tags.amenity) {
+    return `${name}, a ${label(tags.amenity)}.`;
+  }
+  return `${name} — worth noticing.`;
 }
 
 function parseOsmWikipediaTag(val) {
@@ -1182,7 +1225,7 @@ async function onTellMore(e) {
     const deeper = await narrate(poi, persona, { full: true });
     full.classList.remove('loading');
     const sourceLabel = poi.pageid ? 'Wikipedia' : 'OpenStreetMap';
-    const note = poi.pageid ? '' : ' — no fuller article exists yet; this is everything currently tagged.';
+    const note = poi.pageid ? '' : ' — that’s everything I know about this one.';
     full.innerHTML = `<p>${escapeHtml(deeper)}</p><span class="poi-source">Source: <a href="${poi.url}" target="_blank" rel="noopener">${sourceLabel}</a>${note}</span>`;
     full.dataset.loaded = '1';
     if (state.voiceOn) speak(deeper, persona);
