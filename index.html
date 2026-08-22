@@ -2,1332 +2,1280 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Balderdash</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Cicerone — Walking Tour Guide</title>
+<meta name="description" content="Cicerone finds real historical and cultural points nearby and narrates them as you walk.">
+<meta name="theme-color" content="#12213a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%2312213a'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle' fill='%23c9a227'%3E%F0%9F%9B%A4%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
-/* ---- Reset & Base ---- */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ============ Reset & tokens ============ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 :root {
-  --ink:       #1a1208;
-  --paper:     #f0e8d4;
-  --paper-dark:#e0d4b8;
-  --paper-aged:#c8b896;
-  --wood:      #2c1a0e;
-  --wood-mid:  #4a2c14;
-  --wood-light:#6b3f20;
-  --gold:      #b8872a;
-  --gold-light:#d4a43c;
-  --crimson:   #7a1f1f;
-  --shadow:    rgba(0,0,0,0.6);
-  --shadow-sm: rgba(0,0,0,0.3);
-  --font-display: 'Playfair Display', 'Georgia', serif;
-  --font-body:    'IM Fell English', 'Georgia', serif;
+  --ink:        #0e1a2b;
+  --ink-2:      #12213a;
+  --panel:      #16273f;
+  --panel-2:    #1c3050;
+  --paper:      #f4efe1;
+  --gold:       #c9a227;
+  --gold-light: #e2c15a;
+  --gold-dim:   #9c7f22;
+  --live:       #d1483f;
+  --live-light: #ff6a5e;
+  --ok:         #4caf7d;
+  --muted:      #9fb0c8;
+  --muted-2:    #6d7f9c;
+  --shadow:     rgba(4, 9, 18, 0.55);
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html, body {
   height: 100%;
-  background: var(--wood);
-  color: var(--ink);
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--paper);
   font-family: var(--font-body);
-  font-size: 16px;
-  line-height: 1.5;
-  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-body {
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 48px,
-      rgba(0,0,0,0.04) 48px,
-      rgba(0,0,0,0.04) 50px
-    ),
-    repeating-linear-gradient(
-      180deg,
-      transparent,
-      transparent 48px,
-      rgba(0,0,0,0.04) 48px,
-      rgba(0,0,0,0.04) 50px
-    );
-}
+#app { position: fixed; inset: 0; overflow: hidden; }
 
-/* ---- Screens ---- */
-.screen {
-  display: none;
-  min-height: 100vh;
-  padding: 1.5rem;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-}
-.screen.active { display: flex; }
-
-/* ---- Paper card ---- */
-.card {
-  background: var(--paper);
-  border: 2px solid var(--paper-aged);
-  box-shadow:
-    0 2px 0 var(--paper-aged),
-    0 4px 0 rgba(0,0,0,0.2),
-    0 8px 24px var(--shadow),
-    inset 0 1px 0 rgba(255,255,255,0.4);
-  padding: 2rem 2.5rem;
-  width: 100%;
-  max-width: 600px;
-  position: relative;
-}
-
-.card::before {
-  content: '';
+/* ============ Map ============ */
+#map {
   position: absolute;
-  inset: 6px;
-  border: 1px solid rgba(0,0,0,0.08);
+  inset: 0;
+  background: #0b1420;
+  filter: saturate(0.92) brightness(0.97) contrast(1.02);
+}
+.leaflet-control-attribution {
+  background: rgba(14, 26, 43, 0.72) !important;
+  color: var(--muted) !important;
+  font-size: 10px !important;
+  backdrop-filter: blur(2px);
+}
+.leaflet-control-attribution a { color: var(--gold-light) !important; }
+.leaflet-control-zoom { display: none; }
+
+.user-dot {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #4a9eff;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 6px rgba(74,158,255,0.28), 0 2px 6px rgba(0,0,0,0.4);
+}
+.poi-pin {
+  width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--gold);
+  border: 2px solid #fff2d0;
+  box-shadow: 0 2px 6px var(--shadow);
+  display: flex; align-items: center; justify-content: center;
+}
+.poi-pin span { transform: rotate(45deg); font-size: 12px; font-weight: 700; color: var(--ink); }
+.poi-pin.active { background: var(--live-light); }
+
+/* ============ Top bar ============ */
+.topbar {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: calc(var(--safe-top) + 12px) 14px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  pointer-events: none;
+  z-index: 500;
+}
+.brand {
+  display: flex; align-items: baseline; gap: 6px;
+  background: rgba(14,26,43,0.72);
+  backdrop-filter: blur(6px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(201,162,39,0.25);
+  pointer-events: auto;
+}
+.brand-mark { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--gold-light); letter-spacing: 0.02em; }
+.brand-sub { font-size: 10px; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.12em; display: none; }
+@media (min-width: 420px) { .brand-sub { display: inline; } }
+
+.icon-btn-row { display: flex; gap: 8px; pointer-events: auto; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(14,26,43,0.72);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(201,162,39,0.25);
+  color: var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  cursor: pointer;
+}
+.icon-btn:active { transform: scale(0.94); }
+
+/* ============ Center control column ============ */
+.control-col {
+  position: absolute;
+  top: calc(var(--safe-top) + 68px);
+  left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px;
+  z-index: 480;
   pointer-events: none;
 }
 
-/* ---- Typography ---- */
-h1 {
-  font-family: var(--font-display);
-  font-size: clamp(2.8rem, 8vw, 5rem);
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  color: var(--paper);
-  text-shadow:
-    2px 2px 0 var(--wood),
-    -1px -1px 0 rgba(0,0,0,0.5),
-    0 0 40px rgba(184,135,42,0.3);
-  text-align: center;
-  line-height: 1;
-}
-
-h1 span {
-  color: var(--gold-light);
-}
-
-h2 {
-  font-family: var(--font-display);
-  font-size: clamp(1.4rem, 4vw, 2rem);
-  font-weight: 700;
-  color: var(--wood);
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
-h3 {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--wood-mid);
-  margin-bottom: 0.5rem;
-}
-
-.subtitle {
-  font-family: var(--font-body);
-  font-style: italic;
-  color: var(--paper);
-  text-align: center;
-  opacity: 0.75;
-  font-size: 1rem;
-  margin-bottom: 2.5rem;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-}
-
-.label {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--wood-mid);
-  margin-bottom: 0.4rem;
-}
-
-/* ---- Form elements ---- */
-input[type="text"],
-input[type="number"],
-textarea {
-  width: 100%;
-  background: rgba(255,255,255,0.5);
-  border: 1px solid var(--paper-aged);
-  border-bottom: 2px solid var(--wood-mid);
-  padding: 0.6rem 0.75rem;
-  font-family: var(--font-body);
-  font-size: 1rem;
-  color: var(--ink);
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-input[type="text"]:focus,
-input[type="number"]:focus,
-textarea:focus {
-  background: rgba(255,255,255,0.8);
-  border-color: var(--gold);
-  border-bottom-color: var(--gold);
-}
-
-textarea {
-  resize: vertical;
-  min-height: 100px;
-}
-
-/* ---- Buttons ---- */
-.btn {
-  display: inline-block;
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.7rem 1.8rem;
-  border: 2px solid currentColor;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
-  text-decoration: none;
-  background: none;
-  position: relative;
-}
-
-.btn:active { transform: translateY(1px); }
-
-.btn-primary {
-  background: var(--wood);
-  color: var(--gold-light);
-  border-color: var(--gold);
-  box-shadow: 2px 2px 0 rgba(0,0,0,0.4);
-}
-
-.btn-primary:hover {
-  background: var(--wood-mid);
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
-}
-
-.btn-secondary {
-  background: transparent;
-  color: var(--wood-mid);
-  border-color: var(--wood-mid);
-  box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
-}
-
-.btn-secondary:hover {
-  background: var(--paper-dark);
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--paper);
-  border-color: rgba(255,255,255,0.4);
-  font-size: 0.8rem;
-}
-
-.btn-ghost:hover {
-  background: rgba(255,255,255,0.1);
-}
-
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ---- Divider ---- */
-.divider {
+.main-btn-wrap { pointer-events: auto; position: relative; width: 104px; height: 104px; }
+.main-btn {
+  width: 100%; height: 100%;
+  border-radius: 50%;
   border: none;
-  border-top: 1px solid var(--paper-aged);
-  margin: 1.5rem 0;
-}
-
-/* ---- Player chips ---- */
-.player-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
-}
-
-.player-chip {
-  background: var(--wood);
-  color: var(--gold-light);
-  border: 1px solid var(--gold);
-  padding: 0.3rem 0.75rem;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.player-chip .remove {
   cursor: pointer;
-  opacity: 0.6;
-  font-size: 1.1rem;
-  line-height: 1;
-  transition: opacity 0.15s;
-}
-.player-chip .remove:hover { opacity: 1; }
-
-/* ---- Word reveal ---- */
-.word-reveal-container {
-  text-align: center;
-  padding: 2rem 0;
-}
-
-.word-the {
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 0.9rem;
-  color: var(--paper-aged);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  display: block;
-  margin-bottom: 0.3rem;
-}
-
-.word-display {
-  font-family: var(--font-display);
-  font-size: clamp(2.5rem, 8vw, 4.5rem);
-  font-weight: 900;
-  font-style: italic;
-  color: var(--paper);
-  text-shadow:
-    3px 3px 0 rgba(0,0,0,0.4),
-    0 0 60px rgba(184,135,42,0.4);
-  letter-spacing: -0.01em;
-  line-height: 1;
-  display: block;
-  margin-bottom: 0.5rem;
-  opacity: 0;
-  transform: scale(0.8) translateY(10px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-
-.word-display.revealed {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-}
-
-.word-pos {
-  font-family: var(--font-body);
-  font-style: italic;
-  color: var(--gold);
-  font-size: 0.95rem;
-  opacity: 0;
-  transition: opacity 0.4s ease 0.5s;
-}
-
-.word-pos.revealed { opacity: 1; }
-
-/* ---- Pass device screen ---- */
-.pass-device {
-  text-align: center;
-}
-
-.pass-device .player-name-big {
-  font-family: var(--font-display);
-  font-size: clamp(1.8rem, 6vw, 3rem);
-  font-weight: 700;
-  color: var(--gold-light);
-  margin: 0.5rem 0 1rem;
-}
-
-.pass-device .instruction {
-  font-style: italic;
-  color: var(--paper-dark);
-  margin-bottom: 1.5rem;
-}
-
-/* ---- Definition writing ---- */
-.definition-prompt {
-  background: var(--paper-dark);
-  border-left: 4px solid var(--gold);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
-  font-style: italic;
-}
-
-.definition-prompt .word-small {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.3rem;
-  color: var(--wood);
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-/* ---- Timer ---- */
-.timer-bar-wrap {
-  height: 6px;
-  background: var(--paper-aged);
-  margin-bottom: 1rem;
-  overflow: hidden;
-}
-
-.timer-bar {
-  height: 100%;
-  background: var(--gold);
-  transition: width 1s linear, background 1s;
-  width: 100%;
-}
-
-.timer-bar.warning { background: var(--crimson); }
-
-.timer-text {
-  text-align: right;
-  font-family: var(--font-display);
-  font-size: 0.8rem;
-  color: var(--wood-mid);
-  margin-bottom: 0.5rem;
-}
-
-/* ---- Voting slips ---- */
-.vote-list {
-  display: flex;
+  display: flex; align-items: center; justify-content: center;
   flex-direction: column;
-  gap: 0.75rem;
-  margin: 1.25rem 0;
+  gap: 2px;
+  background: radial-gradient(circle at 32% 28%, var(--gold-light), var(--gold) 55%, var(--gold-dim) 100%);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45), inset 0 2px 4px rgba(255,255,255,0.35);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+}
+.main-btn:active { transform: scale(0.95); }
+.main-btn .btn-icon { font-size: 24px; line-height: 1; }
+
+.main-btn-wrap.working .main-btn {
+  background: radial-gradient(circle at 32% 28%, #6fb3ff, #3f7fd9 55%, #2c5ba3 100%);
+  color: #fff;
+}
+.main-btn-wrap.live .main-btn {
+  background: radial-gradient(circle at 32% 28%, var(--live-light), var(--live) 55%, #9c2e26 100%);
+  color: #fff5f3;
+}
+.ring {
+  position: absolute; inset: -8px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  pointer-events: none;
+}
+.working .ring { border-color: rgba(111,179,255,0.5); animation: spin 1.1s linear infinite; border-top-color: transparent; }
+.live .ring { border-color: rgba(255,106,94,0.55); animation: pulse-ring 1.6s ease-out infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse-ring {
+  0% { transform: scale(0.92); opacity: 0.9; }
+  70% { transform: scale(1.28); opacity: 0; }
+  100% { opacity: 0; }
 }
 
-.vote-slip {
-  background: var(--paper);
-  border: 1px solid var(--paper-aged);
-  border-bottom: 2px solid rgba(0,0,0,0.15);
-  padding: 1rem 1.25rem;
+.status-line {
+  pointer-events: auto;
+  font-size: 12.5px;
+  color: var(--paper);
+  background: rgba(14,26,43,0.72);
+  backdrop-filter: blur(6px);
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(201,162,39,0.2);
+  text-align: center;
+  max-width: 82vw;
+}
+.status-line.err { color: #ffb3ac; border-color: rgba(255,106,94,0.4); }
+
+.chip-row {
+  pointer-events: auto;
+  display: flex; gap: 6px;
+  overflow-x: auto;
+  max-width: 100vw;
+  padding: 2px 14px;
+  scrollbar-width: none;
+}
+.chip-row::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(14,26,43,0.72);
+  border: 1px solid rgba(159,176,200,0.25);
+  color: var(--muted);
   cursor: pointer;
-  position: relative;
-  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-  box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
 }
+.chip.on { background: rgba(201,162,39,0.9); color: var(--ink); border-color: var(--gold); font-weight: 600; }
 
-.vote-slip::before {
-  content: attr(data-letter);
+/* ============ Bottom sheet ============ */
+.sheet {
   position: absolute;
-  top: 0.75rem;
-  left: 1rem;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--paper-aged);
+  left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg, var(--panel), var(--ink-2));
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 30px var(--shadow);
+  z-index: 520;
+  display: flex; flex-direction: column;
+  transform: translateY(calc(100% - 84px));
+  transition: transform 0.32s cubic-bezier(.2,.8,.2,1);
+  max-height: 86vh;
+  padding-bottom: var(--safe-bottom);
+  touch-action: none;
+}
+.sheet.peek { transform: translateY(calc(100% - 84px)); }
+.sheet.expanded { transform: translateY(0); }
+.sheet.hidden-sheet { transform: translateY(100%); }
+.sheet-handle-area { padding: 10px 16px 6px; cursor: grab; }
+.sheet-handle { width: 40px; height: 4px; border-radius: 4px; background: rgba(159,176,200,0.35); margin: 0 auto 10px; }
+.sheet-header { display: flex; align-items: baseline; justify-content: space-between; padding: 0 18px 10px; }
+.sheet-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--gold-light); }
+.sheet-count { font-size: 12px; color: var(--muted-2); }
+.sheet-body { overflow-y: auto; padding: 0 14px 18px; flex: 1; -webkit-overflow-scrolling: touch; }
+
+.empty-hint { color: var(--muted); font-size: 13px; padding: 6px 8px 20px; line-height: 1.5; }
+
+/* ============ POI cards ============ */
+.poi-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(201,162,39,0.16);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.poi-card.active { border-color: var(--gold); background: rgba(201,162,39,0.08); }
+.poi-card-head { display: flex; align-items: flex-start; gap: 10px; }
+.poi-index {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--gold); color: var(--ink); font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-top: 2px;
+}
+.poi-title-wrap { flex: 1; min-width: 0; }
+.poi-title-wrap h3 { font-family: var(--font-display); font-size: 15.5px; font-weight: 700; color: var(--paper); line-height: 1.3; }
+.poi-meta { font-size: 11.5px; color: var(--gold-light); letter-spacing: 0.02em; }
+.poi-tag {
+  flex: 0 0 auto; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); border: 1px solid rgba(159,176,200,0.3); border-radius: 999px;
+  padding: 3px 8px; margin-top: 3px;
+}
+.poi-hook { font-size: 13.5px; line-height: 1.55; color: #dfe6f0; margin: 9px 0 8px; }
+.poi-actions { display: flex; align-items: center; gap: 10px; }
+.tell-more-btn {
+  background: none; border: none; color: var(--gold-light); font-size: 12.5px; font-weight: 600;
+  cursor: pointer; padding: 4px 0;
+}
+.speak-btn {
+  background: none; border: none; color: var(--muted); font-size: 15px; cursor: pointer; padding: 4px 6px;
+}
+.poi-full {
+  margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(159,176,200,0.2);
+  font-size: 13px; line-height: 1.6; color: var(--muted);
+}
+.poi-full.loading { font-style: italic; }
+.poi-source { display: block; margin-top: 8px; font-size: 11px; color: var(--muted-2); }
+.poi-source a { color: var(--gold-dim); }
+
+/* ============ Modals (settings / journal) ============ */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(4,9,18,0.6);
+  z-index: 900; display: none; align-items: flex-end;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--panel);
+  width: 100%; max-height: 88vh; overflow-y: auto;
+  border-radius: 18px 18px 0 0;
+  padding: 18px 18px calc(20px + var(--safe-bottom));
+  box-shadow: 0 -10px 30px var(--shadow);
+}
+.modal h2 { font-family: var(--font-display); font-size: 19px; color: var(--gold-light); margin-bottom: 4px; }
+.modal .sub { font-size: 12.5px; color: var(--muted-2); margin-bottom: 16px; }
+.modal-close {
+  float: right; background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer;
+}
+.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-2); margin: 16px 0 8px; }
+.section-label:first-of-type { margin-top: 0; }
+
+.persona-list { display: flex; flex-direction: column; gap: 8px; }
+.persona-opt {
+  display: flex; gap: 10px; align-items: flex-start;
+  border: 1px solid rgba(159,176,200,0.2); border-radius: 12px; padding: 10px 12px; cursor: pointer;
+}
+.persona-opt.sel { border-color: var(--gold); background: rgba(201,162,39,0.08); }
+.persona-opt input { margin-top: 3px; accent-color: var(--gold); }
+.persona-opt .p-name { font-weight: 600; font-size: 13.5px; color: var(--paper); }
+.persona-opt .p-desc { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.custom-persona-input {
+  width: 100%; margin-top: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(159,176,200,0.25);
+  border-radius: 10px; color: var(--paper); padding: 9px 11px; font-size: 13px; font-family: var(--font-body);
+  resize: vertical; min-height: 54px;
 }
 
-.vote-slip .slip-text {
-  padding-left: 1.5rem;
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 1rem;
-  color: var(--ink);
+.settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(159,176,200,0.1); }
+.settings-row:last-child { border-bottom: none; }
+.settings-row .label { font-size: 13.5px; color: var(--paper); }
+.settings-row .hint { font-size: 11px; color: var(--muted-2); margin-top: 2px; }
+.settings-row input[type=range] { width: 130px; accent-color: var(--gold); }
+.toggle {
+  width: 42px; height: 24px; border-radius: 999px; background: rgba(159,176,200,0.25);
+  position: relative; cursor: pointer; flex: 0 0 auto; border: none;
 }
-
-.vote-slip:hover {
-  background: var(--paper-dark);
-  transform: translateY(-1px);
-  box-shadow: 2px 4px 8px rgba(0,0,0,0.2);
+.toggle.on { background: var(--gold); }
+.toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; transition: left 0.18s ease;
 }
+.toggle.on::after { left: 21px; }
 
-.vote-slip.selected {
-  background: var(--wood);
-  border-color: var(--gold);
+.rename-input {
+  width: 100%; background: rgba(0,0,0,0.25); border: 1px solid rgba(159,176,200,0.25);
+  border-radius: 10px; color: var(--paper); padding: 8px 11px; font-size: 13.5px; margin-top: 6px;
 }
-
-.vote-slip.selected .slip-text {
-  color: var(--paper);
+.small-btn {
+  background: rgba(159,176,200,0.12); color: var(--paper); border: 1px solid rgba(159,176,200,0.25);
+  border-radius: 10px; padding: 8px 12px; font-size: 12.5px; cursor: pointer; margin-top: 4px;
 }
+.small-btn.danger { color: #ffb3ac; border-color: rgba(255,106,94,0.35); }
 
-.vote-slip.selected::before {
-  color: var(--gold);
+.journal-entry {
+  border-bottom: 1px solid rgba(159,176,200,0.12);
+  padding: 12px 0;
 }
+.journal-entry:last-child { border-bottom: none; }
+.journal-date { font-size: 11px; color: var(--gold-light); text-transform: uppercase; letter-spacing: 0.06em; }
+.journal-loc { font-size: 11px; color: var(--muted-2); margin-top: 1px; }
+.journal-pois { font-size: 13px; color: var(--paper); margin-top: 6px; line-height: 1.6; }
+.journal-pois li { margin-left: 16px; }
 
-.vote-slip.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.toast-wrap {
+  position: absolute; left: 0; right: 0; bottom: calc(96px + var(--safe-bottom));
+  display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 950; pointer-events: none;
 }
-
-.vote-slip.disabled:hover {
-  transform: none;
-  box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
+.toast {
+  background: rgba(14,26,43,0.92); border: 1px solid rgba(201,162,39,0.3);
+  color: var(--paper); font-size: 12.5px; padding: 9px 16px; border-radius: 999px;
+  box-shadow: 0 6px 18px var(--shadow); max-width: 88vw; text-align: center;
 }
-
-/* ---- Results ---- */
-.result-slip {
-  background: var(--paper);
-  border: 1px solid var(--paper-aged);
-  border-bottom: 2px solid rgba(0,0,0,0.15);
-  padding: 1rem 1.25rem 1rem 3rem;
-  margin-bottom: 0.75rem;
-  position: relative;
-  box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
-}
-
-.result-slip.real {
-  border-left: 4px solid var(--gold);
-  background: #f5edd8;
-}
-
-.result-slip .slip-letter {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--paper-aged);
-}
-
-.result-slip.real .slip-letter { color: var(--gold); }
-
-.result-slip .slip-text {
-  font-style: italic;
-  color: var(--ink);
-  margin-bottom: 0.4rem;
-}
-
-.result-slip .slip-meta {
-  font-size: 0.82rem;
-  color: var(--wood-mid);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.result-slip .author-tag {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.78rem;
-}
-
-.fooled-badge {
-  background: var(--crimson);
-  color: var(--paper);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  padding: 0.15rem 0.4rem;
-}
-
-.correct-badge {
-  background: var(--wood);
-  color: var(--gold-light);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  padding: 0.15rem 0.4rem;
-}
-
-/* ---- Scores ---- */
-.score-list {
-  list-style: none;
-  margin: 1rem 0;
-}
-
-.score-row {
-  display: flex;
-  align-items: baseline;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--paper-aged);
-  gap: 0.75rem;
-}
-
-.score-row:last-child { border-bottom: none; }
-
-.score-rank {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: var(--paper-aged);
-  width: 1.5rem;
-  flex-shrink: 0;
-}
-
-.score-name {
-  flex: 1;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--ink);
-}
-
-.score-pts {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 1.4rem;
-  color: var(--wood);
-}
-
-.score-delta {
-  font-size: 0.85rem;
-  color: var(--crimson);
-  font-style: italic;
-  min-width: 2.5rem;
-  text-align: right;
-}
-
-.score-delta.positive { color: var(--wood-mid); }
-
-.score-row.winner .score-name { color: var(--gold); }
-.score-row.winner .score-pts  { color: var(--gold); }
-
-/* ---- Round badge ---- */
-.round-badge {
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--paper);
-  opacity: 0.6;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-/* ---- Candle decorative ---- */
-.title-deco {
-  text-align: center;
-  margin-bottom: 1rem;
-  color: var(--gold);
-  font-size: 1.4rem;
-  opacity: 0.7;
-  letter-spacing: 0.3em;
-}
-
-/* ---- Flex helpers ---- */
-.row { display: flex; gap: 0.75rem; align-items: center; }
-.row-end { justify-content: flex-end; }
-.row-between { justify-content: space-between; }
-.mt1 { margin-top: 1rem; }
-.mt2 { margin-top: 1.5rem; }
-.mb1 { margin-bottom: 1rem; }
-.mb05 { margin-bottom: 0.5rem; }
-.text-center { text-align: center; }
-.italic { font-style: italic; }
-.small { font-size: 0.85rem; }
-.muted { color: var(--wood-mid); }
-
-/* ---- Config row ---- */
-.config-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 0.75rem 0;
-  flex-wrap: wrap;
-}
-.config-row label { flex: 1; min-width: 160px; }
-.config-row input[type="number"] { width: 70px; flex-shrink: 0; }
-.config-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
-
-/* ---- Final winner ---- */
-.winner-display {
-  text-align: center;
-  padding: 1.5rem 0;
-}
-
-.winner-crown {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  display: block;
-}
-
-.winner-name {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  font-weight: 900;
-  color: var(--gold-light);
-  text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
-  display: block;
-}
-
-.winner-label {
-  font-style: italic;
-  color: var(--paper-aged);
-  margin-top: 0.25rem;
-}
-
-/* ---- Notification ---- */
-.notif {
-  position: fixed;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%) translateY(100px);
-  background: var(--wood);
-  color: var(--gold-light);
-  border: 1px solid var(--gold);
-  padding: 0.7rem 1.5rem;
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-  z-index: 999;
-  transition: transform 0.3s ease;
-  text-align: center;
-  max-width: 90vw;
-}
-
-.notif.show { transform: translateX(-50%) translateY(0); }
-
-/* ---- Mobile tweaks ---- */
-@media (max-width: 480px) {
-  .card { padding: 1.5rem 1.25rem; }
-  .btn { padding: 0.65rem 1.2rem; font-size: 0.82rem; }
-  .vote-slip .slip-text { font-size: 0.95rem; }
-}
-
-/* ---- Animations ---- */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.fade-in { animation: fadeIn 0.4s ease forwards; }
-
-@keyframes flicker {
-  0%,100% { opacity: 0.7; }
-  50%      { opacity: 0.85; }
-}
+.toast.err { border-color: rgba(255,106,94,0.5); color: #ffcfc9; }
 </style>
 </head>
 <body>
+<div id="app">
+  <div id="map"></div>
 
-<!-- ========== SCREEN: TITLE ========== -->
-<div id="screen-title" class="screen active">
-  <div class="title-deco">— ✦ —</div>
-  <h1>Balder<span>dash</span></h1>
-  <p class="subtitle">The game of balderdash &amp; bluff</p>
-  <div style="display:flex; gap:1rem; flex-wrap:wrap; justify-content:center;">
-    <button class="btn btn-primary" onclick="showScreen('screen-setup')">Begin</button>
-  </div>
-  <div style="margin-top:2rem;">
-    <button class="btn btn-ghost" onclick="showScreen('screen-rules')">How to Play</button>
-  </div>
-</div>
-
-<!-- ========== SCREEN: RULES ========== -->
-<div id="screen-rules" class="screen">
-  <div class="card fade-in">
-    <h2>How to Play</h2>
-    <hr class="divider">
-    <p class="mb1">Each round, an obscure word is revealed. Every player writes a convincing <em>fake</em> definition — then everyone votes for the one they believe is real.</p>
-    <p class="mb1"><strong>Points:</strong></p>
-    <ul style="padding-left:1.5rem; margin-bottom:1rem;">
-      <li>+1 for guessing the real definition</li>
-      <li>+1 for each opponent fooled by your fake</li>
-    </ul>
-    <p class="mb1 italic muted small">Pass the device between players during the writing phase so definitions stay secret.</p>
-    <hr class="divider">
-    <div class="text-center">
-      <button class="btn btn-primary" onclick="showScreen('screen-setup')">Got it — Let's Play</button>
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark" id="brandMark">Cicerone</span>
+      <span class="brand-sub">tour guide</span>
+    </div>
+    <div class="icon-btn-row">
+      <button class="icon-btn" id="journalBtn" title="Walk journal" aria-label="Walk journal">📓</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">⚙️</button>
     </div>
   </div>
-</div>
 
-<!-- ========== SCREEN: SETUP ========== -->
-<div id="screen-setup" class="screen">
-  <div class="card fade-in">
-    <h2>Gather Your Players</h2>
-    <hr class="divider">
-
-    <label class="label" for="player-input">Player name</label>
-    <div class="row mb1">
-      <input type="text" id="player-input" placeholder="Enter name…" maxlength="24" autocomplete="off">
-      <button class="btn btn-secondary" onclick="addPlayer()">Add</button>
+  <div class="control-col">
+    <div class="main-btn-wrap idle" id="mainBtnWrap">
+      <div class="ring"></div>
+      <button class="main-btn" id="mainBtn">
+        <span class="btn-icon" id="mainBtnIcon">🧭</span>
+        <span id="mainBtnLabel">Show Me</span>
+      </button>
     </div>
+    <div class="status-line" id="statusLine">Tap for a lookup · hold to follow you</div>
+    <div class="chip-row" id="chipRow"></div>
+  </div>
 
-    <div id="player-list-display" class="player-list"></div>
+  <div class="toast-wrap" id="toastWrap"></div>
 
-    <hr class="divider">
-
-    <h3>Game Settings</h3>
-
-    <div class="config-row">
-      <label class="label" for="rounds-input">Rounds</label>
-      <input type="number" id="rounds-input" value="5" min="1" max="20">
+  <div class="sheet peek" id="sheet">
+    <div class="sheet-handle-area" id="sheetHandle">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title" id="sheetTitle">Nearby</span>
+        <span class="sheet-count" id="sheetCount"></span>
+      </div>
     </div>
-
-    <div class="config-row">
-      <label class="label" for="timer-check">Writing timer (60 s)</label>
-      <input type="checkbox" id="timer-check" checked>
-    </div>
-
-    <hr class="divider">
-    <div class="row row-between">
-      <button class="btn btn-ghost" style="color:var(--wood-mid); border-color:var(--wood-mid);" onclick="showScreen('screen-title')">← Back</button>
-      <button class="btn btn-primary" id="start-btn" onclick="startGame()" disabled>Start Game</button>
+    <div class="sheet-body" id="sheetBody">
+      <div class="empty-hint" id="emptyHint">Press <strong id="emptyHintBtnName">Show Me</strong> to find what's around you — real places, ordered by distance, read aloud as you go.</div>
+      <div id="cardsList"></div>
     </div>
   </div>
 </div>
 
-<!-- ========== SCREEN: ROUND INTRO ========== -->
-<div id="screen-round-intro" class="screen">
-  <div id="round-intro-badge" class="round-badge"></div>
-  <div class="word-reveal-container">
-    <span class="word-the">The word is…</span>
-    <span id="word-display" class="word-display"></span>
-    <span id="word-pos" class="word-pos"></span>
-  </div>
-  <button class="btn btn-primary" onclick="beginWritingPhase()">Begin Writing</button>
-</div>
+<div class="modal-backdrop" id="settingsBackdrop">
+  <div class="modal">
+    <button class="modal-close" id="settingsClose">✕</button>
+    <h2>Settings</h2>
+    <div class="sub">Tune your guide.</div>
 
-<!-- ========== SCREEN: PASS DEVICE ========== -->
-<div id="screen-pass" class="screen">
-  <div class="card fade-in pass-device">
-    <p class="muted italic small">Pass the device to…</p>
-    <p id="pass-player-name" class="player-name-big"></p>
-    <p class="instruction small">Do not show your screen to other players.</p>
-    <button class="btn btn-primary" onclick="startPlayerWrite()">I'm Ready</button>
-  </div>
-</div>
+    <div class="section-label">Guide persona</div>
+    <div class="persona-list" id="personaList"></div>
+    <textarea class="custom-persona-input" id="customPersonaInput" placeholder="Describe how your custom guide should sound…" hidden></textarea>
 
-<!-- ========== SCREEN: WRITE ========== -->
-<div id="screen-write" class="screen">
-  <div class="card fade-in">
-    <div id="write-round-badge" class="round-badge mb05"></div>
+    <div class="section-label">Category filters</div>
+    <div class="chip-row" id="settingsChipRow" style="overflow-x:visible; flex-wrap:wrap; padding:0;"></div>
 
-    <div class="definition-prompt">
-      <span id="write-word" class="word-small"></span>
-      <span id="write-pos" class="muted small italic"></span>
+    <div class="section-label">Behaviour</div>
+    <div class="settings-row">
+      <div><div class="label">Voice narration</div><div class="hint">Read guide aloud with speechSynthesis</div></div>
+      <button class="toggle on" id="voiceToggle"></button>
+    </div>
+    <div class="settings-row">
+      <div><div class="label">Search radius</div><div class="hint" id="radiusHint">300 m</div></div>
+      <input type="range" id="radiusRange" min="100" max="600" step="25" value="300">
+    </div>
+    <div class="settings-row">
+      <div><div class="label">Live refresh distance</div><div class="hint" id="moveHint">85 m</div></div>
+      <input type="range" id="moveRange" min="50" max="150" step="5" value="85">
     </div>
 
-    <div id="timer-display" style="display:none;">
-      <div class="timer-text"><span id="timer-text">60</span>s remaining</div>
-      <div class="timer-bar-wrap"><div id="timer-bar" class="timer-bar"></div></div>
+    <div class="section-label">Naming</div>
+    <div class="settings-row" style="display:block;">
+      <div class="label">App name</div>
+      <input class="rename-input" id="appNameInput" maxlength="24">
+    </div>
+    <div class="settings-row" style="display:block;">
+      <div class="label">Button label</div>
+      <input class="rename-input" id="buttonNameInput" maxlength="18">
     </div>
 
-    <label class="label" for="def-input">Your definition</label>
-    <textarea id="def-input" placeholder="Write a convincing definition…" maxlength="400"></textarea>
-
-    <div class="row row-between mt2">
-      <span class="small muted italic" id="write-player-label"></span>
-      <button class="btn btn-primary" id="submit-def-btn" onclick="submitDefinition()">Submit</button>
-    </div>
+    <div class="section-label">Data</div>
+    <button class="small-btn" id="clearCacheBtn">Clear lookup cache</button>
+    <button class="small-btn danger" id="resetSettingsBtn" style="margin-left:8px;">Reset to defaults</button>
   </div>
 </div>
 
-<!-- ========== SCREEN: VOTE ========== -->
-<div id="screen-vote-pass" class="screen">
-  <div class="card fade-in pass-device">
-    <p class="muted italic small">Pass the device to…</p>
-    <p id="vote-pass-player-name" class="player-name-big"></p>
-    <p class="instruction small">Time to vote — choose wisely.</p>
-    <button class="btn btn-primary" onclick="startPlayerVote()">I'm Ready</button>
+<div class="modal-backdrop" id="journalBackdrop">
+  <div class="modal">
+    <button class="modal-close" id="journalClose">✕</button>
+    <h2>Walk journal</h2>
+    <div class="sub">A quiet log of where you went and what you were told.</div>
+    <div id="journalList"></div>
+    <div class="empty-hint" id="journalEmpty" hidden>Nothing logged yet — your first lookup will appear here.</div>
+    <button class="small-btn" id="exportJournalBtn" style="margin-top:14px;">Export journal (.json)</button>
+    <button class="small-btn danger" id="clearJournalBtn" style="margin-top:14px; margin-left:8px;">Clear journal</button>
   </div>
 </div>
 
-<div id="screen-vote" class="screen">
-  <div class="card fade-in">
-    <div id="vote-round-badge" class="round-badge mb05"></div>
-    <h2 id="vote-word-display" style="margin-bottom:0.25rem;"></h2>
-    <p class="muted small italic text-center mb1">Which is the real definition?</p>
-
-    <div id="vote-list" class="vote-list"></div>
-
-    <div class="row row-between mt1">
-      <span class="small muted italic" id="vote-player-label"></span>
-      <button class="btn btn-primary" id="vote-btn" onclick="submitVote()" disabled>Cast Vote</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== SCREEN: RESULTS ========== -->
-<div id="screen-results" class="screen">
-  <div class="card fade-in">
-    <div id="results-round-badge" class="round-badge mb05"></div>
-    <h2 id="results-word-display"></h2>
-    <div id="results-list" class="mt1"></div>
-    <hr class="divider">
-    <h3>Scores after this round</h3>
-    <ul id="results-scores" class="score-list"></ul>
-    <hr class="divider">
-    <div class="text-center">
-      <button class="btn btn-primary" id="next-round-btn" onclick="nextRound()">Next Round →</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== SCREEN: FINAL ========== -->
-<div id="screen-final" class="screen">
-  <div class="card fade-in">
-    <div class="winner-display">
-      <span class="winner-crown">★</span>
-      <span id="winner-name-display" class="winner-name"></span>
-      <span class="winner-label">wins the game!</span>
-    </div>
-    <hr class="divider">
-    <h3>Final Scores</h3>
-    <ul id="final-scores" class="score-list"></ul>
-    <hr class="divider">
-    <div class="text-center">
-      <button class="btn btn-primary" onclick="resetGame()">Play Again</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== NOTIFICATION ========== -->
-<div id="notif" class="notif"></div>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-// ================================================================
-//  WORD BANK
-// ================================================================
-const WORDS = [
-  { word: "fipple",          partOfSpeech: "n.", definition: "A plug in the mouthpiece of a wind instrument such as a recorder, with a narrow opening that directs the air flow to produce sound." },
-  { word: "snollygoster",    partOfSpeech: "n.", definition: "A shrewd, unprincipled person, especially a politician who acts only for personal gain." },
-  { word: "groak",           partOfSpeech: "v.", definition: "To stare silently at someone while they are eating, hoping they will offer you some of their food." },
-  { word: "cachinnate",      partOfSpeech: "v.", definition: "To laugh loudly or immoderately." },
-  { word: "ultracrepidarian",partOfSpeech: "adj.", definition: "Noting or pertaining to a person who gives opinions and advice on matters outside of one's knowledge or competence." },
-  { word: "vellichor",       partOfSpeech: "n.", definition: "The strange wistfulness of used bookshops, which are somehow always melancholy despite brimming with other people's epiphanies." },
-  { word: "sonder",          partOfSpeech: "n.", definition: "The realisation that each passerby has a life as vivid and complex as one's own." },
-  { word: "petrichor",       partOfSpeech: "n.", definition: "The pleasant, earthy smell produced when rain falls on dry soil." },
-  { word: "widdershins",     partOfSpeech: "adv.", definition: "In a direction contrary to the sun's course, considered as unlucky; anticlockwise." },
-  { word: "borborygmus",     partOfSpeech: "n.", definition: "A rumbling or gurgling noise made by the movement of fluid and gas in the intestines." },
-  { word: "callipygian",     partOfSpeech: "adj.", definition: "Having well-shaped or finely developed buttocks." },
-  { word: "meldrop",         partOfSpeech: "n.", definition: "A drop of mucus hanging from the nose." },
-  { word: "quomodocunquize", partOfSpeech: "v.", definition: "To make money by any means possible." },
-  { word: "jentacular",      partOfSpeech: "adj.", definition: "Pertaining to or taken at breakfast." },
-  { word: "gongoozle",       partOfSpeech: "v.", definition: "To stare idly at boats and activity on a canal." },
-  { word: "drisk",           partOfSpeech: "n.", definition: "Weather that is not quite drizzle and not quite mist; a very fine, wet dampness in the air." },
-  { word: "smellfungus",     partOfSpeech: "n.", definition: "A person who finds fault with everything; a perpetual grumbler." },
-  { word: "flibbertigibbet", partOfSpeech: "n.", definition: "A frivolous, flighty, or excessively talkative person." },
-  { word: "mumpsimus",       partOfSpeech: "n.", definition: "A traditional custom or notion adhered to although shown to be unreasonable; a person who stubbornly adheres to such a custom." },
-  { word: "bimble",          partOfSpeech: "v.", definition: "To travel at a leisurely pace with no particular direction or purpose." },
-  { word: "apricity",        partOfSpeech: "n.", definition: "The warmth of the sun in winter." },
-  { word: "lunting",         partOfSpeech: "v.", definition: "Walking while smoking a pipe." },
-  { word: "vagitus",         partOfSpeech: "n.", definition: "The cry of a newborn baby." },
-  { word: "philosophunculist",partOfSpeech: "n.", definition: "A person who pretends to know more than they do in order to impress others." },
-  { word: "tyrotoxism",      partOfSpeech: "n.", definition: "Poisoning by cheese or other dairy products." },
-  { word: "katzenjammer",    partOfSpeech: "n.", definition: "The unpleasant after-effects of excessive drinking; a hangover; also, a state of depression or bewilderment." },
-  { word: "curglaff",        partOfSpeech: "n.", definition: "The shock felt when plunging into cold water." },
-  { word: "halfpace",        partOfSpeech: "n.", definition: "A landing of a staircase where the stair turns back in exactly the reverse direction of the lower flight." },
-  { word: "ostrobogulous",   partOfSpeech: "adj.", definition: "Slightly risqué or indecent; bizarre; interesting or unusual." },
-  { word: "euneirophrenia",  partOfSpeech: "n.", definition: "Peace of mind after a pleasant dream." },
-  { word: "virago",          partOfSpeech: "n.", definition: "A woman regarded as noisy, scolding, or domineering; also, a woman of masculine strength or spirit." },
-  { word: "scripturient",    partOfSpeech: "adj.", definition: "Having a strong urge to write." },
-  { word: "zaftig",          partOfSpeech: "adj.", definition: "Of a woman: having a full, rounded figure; plump." },
-  { word: "lollygag",        partOfSpeech: "v.", definition: "To spend time aimlessly; to dawdle or fool around." },
-  { word: "noctambulism",    partOfSpeech: "n.", definition: "The act of walking or performing other motor acts while asleep; sleepwalking." },
-  { word: "tittynope",       partOfSpeech: "n.", definition: "A small quantity of something left over." },
-  { word: "pabulum",         partOfSpeech: "n.", definition: "Food or nourishment; bland or insipid intellectual matter or entertainment." },
-  { word: "velitation",      partOfSpeech: "n.", definition: "A minor dispute or skirmish." },
-  { word: "fugacious",       partOfSpeech: "adj.", definition: "Tending to disappear or flee; transient; fleeting." },
-  { word: "snirtle",         partOfSpeech: "v.", definition: "To suppress or partly stifle a laugh; to snigger." },
-  { word: "rawgabbit",       partOfSpeech: "n.", definition: "A person who speaks confidently about a subject they know nothing about." },
-  { word: "callithumpian",   partOfSpeech: "adj.", definition: "Of or relating to a discordant band of music, especially one used in a mock serenade." },
-  { word: "zwodder",         partOfSpeech: "n.", definition: "A drowsy or stupefied state of body or mind." },
-  { word: "yonderly",        partOfSpeech: "adj.", definition: "Mentally or emotionally distant; absent-minded; vague or dreamy." },
-  { word: "taradiddle",      partOfSpeech: "n.", definition: "A petty lie; also, pretentious nonsense." },
-  { word: "woofits",         partOfSpeech: "n.", definition: "An unwell feeling, especially a headache caused by excessive drinking." },
-  { word: "sprachgefühl",    partOfSpeech: "n.", definition: "An intuitive sense of what is linguistically appropriate in a given situation; a feel for language." },
-  { word: "mugwump",         partOfSpeech: "n.", definition: "A person who remains aloof or independent, especially from party politics." },
-  { word: "resistentialism", partOfSpeech: "n.", definition: "The seemingly malicious behaviour of inanimate objects." },
-  { word: "jabberwocky",     partOfSpeech: "n.", definition: "Invented or meaningless language; nonsense." },
-];
+(function () {
+'use strict';
 
-// ================================================================
-//  GAME STATE
-// ================================================================
-let state = {
-  players: [],       // [{name, score}]
-  rounds: 5,
-  useTimer: true,
-  timerSeconds: 60,
-  currentRound: 0,
-  wordPool: [],
-  currentWord: null,       // {word, partOfSpeech, definition}
-  definitions: [],         // [{playerId, text, isReal}]
-  shuffledDefs: [],        // [{origIndex, text, isReal, playerId}] — for display
-  votes: {},               // {playerId: shuffledDefIndex}
-  writePlayerIndex: 0,
-  votePlayerIndex: 0,
-  timerInterval: null,
-  timerRemaining: 0,
-  prevScores: [],
+/* =========================================================================
+   CONFIG — the one place to rename the app, the button, and tune behaviour.
+   ========================================================================= */
+const CONFIG = {
+  appName: 'Cicerone',
+  buttonName: 'Show Me',
+  buttonNameWorking: 'Listening…',
+  buttonNameLive: 'Following',
+
+  radiusMeters: 300,          // how far to search around the user
+  maxResultsFetched: 20,      // cap on raw geosearch results per lookup
+  maxResultsShown: 8,         // cap on cards rendered/narrated per lookup
+
+  liveMoveThresholdMeters: 85,  // live mode: refresh once moved this far…
+  liveTimeThresholdMs: 3 * 60 * 1000, // …or this long since the last lookup
+  liveWatchMinIntervalMs: 4000, // throttle raw GPS ticks before even checking thresholds
+
+  cacheDecimalPlaces: 3,      // ~110m grid for the "already asked about this corner" cache
+
+  // Narration layer: this is the single swappable seam. Today it's a keyless
+  // passthrough (real Wikipedia extract, unmodified). Point narrationEndpoint
+  // at a small backend that proxies an Anthropic API call to switch on
+  // persona-voiced narration without touching any other code.
+  narrationEndpoint: null,
+
+  wikipediaApi: 'https://en.wikipedia.org/w/api.php',
+
+  personas: [
+    { id: 'plain', name: 'Plain facts', voice: { rate: 1.0, pitch: 1.0 },
+      desc: 'No persona — just the Wikipedia extract, read as written.' },
+    { id: 'historian', name: 'The Dry Historian', voice: { rate: 0.95, pitch: 0.88 },
+      desc: 'Precise, a little wry, treats every date like it matters.' },
+    { id: 'local', name: 'The Excitable Local', voice: { rate: 1.14, pitch: 1.16 },
+      desc: 'Warm, breathless, thrilled you asked about their neighbourhood.' },
+    { id: 'noir', name: 'Noir Voiceover', voice: { rate: 0.86, pitch: 0.74 },
+      desc: 'Moody, clipped, every street corner sounds like a confession.' },
+    { id: 'poet', name: 'The Poet', voice: { rate: 0.92, pitch: 1.02 },
+      desc: 'Lyrical and unhurried, finds the image inside the fact.' },
+    { id: 'custom', name: 'Custom…', voice: { rate: 1.0, pitch: 1.0 },
+      desc: 'Describe your own guide — used when narration is proxied through a model.' }
+  ],
+  defaultPersonaId: 'plain',
+
+  categoryFilters: [
+    { id: 'history',    label: 'History',       re: /histor|heritage|monument|memorial|battle|war\b|ancient|medieval|archaeolog|century/i },
+    { id: 'architecture', label: 'Architecture', re: /architect|building|tower|cathedral|church|castle|bridge|palace|structure|basilica|mosque|synagogue|chapel/i },
+    { id: 'musicFilm',  label: 'Music & Film',   re: /\bmusic|band\b|film|cinema|theatre|theater|opera|concert|studio|actor|composer|movie/i },
+    { id: 'foodDrink',  label: 'Food & Drink',   re: /restaurant|caf[eé]|food|cuisine|brewery|winery|\bbar\b|market|drink|bakery|pub\b/i },
+    { id: 'hiddenGems', label: 'Hidden gems',    re: null } // heuristic, see classify()
+  ]
 };
 
-// ================================================================
-//  UTILITY
-// ================================================================
-function $(id) { return document.getElementById(id); }
+/* =========================================================================
+   State
+   ========================================================================= */
+const state = {
+  mode: 'idle', // idle | working | live
+  userPos: null,
+  watchId: null,
+  lastLiveTick: 0,
+  lastLookup: { pos: null, time: 0 },
+  cache: new Map(),          // roundedCoordKey -> array of poi
+  currentPois: [],
+  filters: loadFilters(),
+  personaId: loadSetting('personaId', CONFIG.defaultPersonaId),
+  customPersonaText: loadSetting('customPersonaText', ''),
+  voiceOn: loadSetting('voiceOn', true) !== false,
+  sheetState: 'peek', // peek | expanded | hidden-sheet
+  markers: new Map(),
+  speechQueueId: 0
+};
 
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  $(id).classList.add('active');
+function loadFilters() {
+  const saved = loadSetting('filters', null);
+  const base = {};
+  CONFIG.categoryFilters.forEach(f => base[f.id] = true);
+  return saved ? Object.assign(base, saved) : base;
+}
+function loadSetting(key, fallback) {
+  try {
+    const raw = localStorage.getItem('cicerone.' + key);
+    return raw === null ? fallback : JSON.parse(raw);
+  } catch (e) { return fallback; }
+}
+function saveSetting(key, value) {
+  try { localStorage.setItem('cicerone.' + key, JSON.stringify(value)); } catch (e) {}
 }
 
-function notify(msg, duration = 2200) {
-  const el = $('notif');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), duration);
+CONFIG.appName = loadSetting('appName', CONFIG.appName);
+CONFIG.buttonName = loadSetting('buttonName', CONFIG.buttonName);
+
+/* =========================================================================
+   Geo utilities
+   ========================================================================= */
+function toRad(d) { return d * Math.PI / 180; }
+function toDeg(r) { return r * 180 / Math.PI; }
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const COMPASS_WORD = { N: 'north', NE: 'northeast', E: 'east', SE: 'southeast', S: 'south', SW: 'southwest', W: 'west', NW: 'northwest' };
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+function compassLabel(deg) { return COMPASS[Math.round(deg / 45) % 8]; }
+
+function formatDistance(m) {
+  if (m < 1000) return Math.round(m / 5) * 5 + ' m';
+  return (m / 1000).toFixed(1) + ' km';
 }
 
-const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-// ================================================================
-//  SETUP
-// ================================================================
-function addPlayer() {
-  const input = $('player-input');
-  const name = input.value.trim();
-  if (!name) return;
-  if (state.players.length >= 8) { notify('Maximum 8 players'); return; }
-  if (state.players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
-    notify('Name already taken'); return;
-  }
-  state.players.push({ name, score: 0 });
-  input.value = '';
-  input.focus();
-  renderPlayerList();
+function roundCoordKey(lat, lon) {
+  return lat.toFixed(CONFIG.cacheDecimalPlaces) + ',' + lon.toFixed(CONFIG.cacheDecimalPlaces);
 }
 
-$('player-input').addEventListener('keydown', e => { if (e.key === 'Enter') addPlayer(); });
-
-function removePlayer(index) {
-  state.players.splice(index, 1);
-  renderPlayerList();
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function renderPlayerList() {
-  const el = $('player-list-display');
-  el.innerHTML = '';
-  state.players.forEach((p, i) => {
-    const chip = document.createElement('div');
-    chip.className = 'player-chip';
-    chip.innerHTML = `${p.name} <span class="remove" onclick="removePlayer(${i})">×</span>`;
-    el.appendChild(chip);
-  });
-  $('start-btn').disabled = state.players.length < 2;
+/* =========================================================================
+   Map
+   ========================================================================= */
+let map, userMarker, accuracyCircle;
+function initMap() {
+  map = L.map('map', { zoomControl: false, attributionControl: true }).setView([51.5074, -0.1278], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
 }
 
-function startGame() {
-  state.rounds = Math.max(1, Math.min(20, parseInt($('rounds-input').value) || 5));
-  state.useTimer = $('timer-check').checked;
-  state.currentRound = 0;
-  state.players.forEach(p => p.score = 0);
-  state.wordPool = shuffle(WORDS).slice(0, state.rounds);
-  if (state.wordPool.length < state.rounds) {
-    notify(`Only ${WORDS.length} words available; rounds capped.`);
-    state.rounds = state.wordPool.length;
-  }
-  startRound();
-}
-
-// ================================================================
-//  ROUND FLOW
-// ================================================================
-function startRound() {
-  state.currentRound++;
-  state.currentWord = state.wordPool[state.currentRound - 1];
-  state.definitions = [];
-  state.shuffledDefs = [];
-  state.votes = {};
-  state.writePlayerIndex = 0;
-  state.votePlayerIndex = 0;
-  state.prevScores = state.players.map(p => p.score);
-
-  $('round-intro-badge').textContent = `Round ${state.currentRound} of ${state.rounds}`;
-  const wordEl = $('word-display');
-  const posEl  = $('word-pos');
-  wordEl.textContent = state.currentWord.word;
-  posEl.textContent  = state.currentWord.partOfSpeech;
-  wordEl.classList.remove('revealed');
-  posEl.classList.remove('revealed');
-
-  showScreen('screen-round-intro');
-  setTimeout(() => {
-    wordEl.classList.add('revealed');
-    posEl.classList.add('revealed');
-  }, 150);
-}
-
-function beginWritingPhase() {
-  showPassScreen();
-}
-
-// ================================================================
-//  WRITING PHASE
-// ================================================================
-function showPassScreen() {
-  const player = state.players[state.writePlayerIndex];
-  $('pass-player-name').textContent = player.name;
-  showScreen('screen-pass');
-}
-
-function startPlayerWrite() {
-  const player = state.players[state.writePlayerIndex];
-  $('write-round-badge').textContent = `Round ${state.currentRound} of ${state.rounds}`;
-  $('write-word').textContent = state.currentWord.word;
-  $('write-pos').textContent  = state.currentWord.partOfSpeech;
-  $('write-player-label').textContent = player.name;
-  $('def-input').value = '';
-  $('def-input').focus();
-
-  const timerDiv = $('timer-display');
-  if (state.useTimer) {
-    timerDiv.style.display = 'block';
-    startTimer(state.timerSeconds, () => submitDefinition(true));
+function updateUserMarker(lat, lon, accuracy) {
+  const latlng = [lat, lon];
+  if (!userMarker) {
+    userMarker = L.marker(latlng, {
+      icon: L.divIcon({ className: '', html: '<div class="user-dot"></div>', iconSize: [18, 18] }),
+      zIndexOffset: 1000
+    }).addTo(map);
+    accuracyCircle = L.circle(latlng, { radius: accuracy || 30, color: '#4a9eff', weight: 1, fillOpacity: 0.08 }).addTo(map);
+    map.setView(latlng, 16);
   } else {
-    timerDiv.style.display = 'none';
-    stopTimer();
-  }
-
-  showScreen('screen-write');
-}
-
-function startTimer(seconds, onExpire) {
-  stopTimer();
-  state.timerRemaining = seconds;
-  updateTimerUI();
-  state.timerInterval = setInterval(() => {
-    state.timerRemaining--;
-    updateTimerUI();
-    if (state.timerRemaining <= 0) {
-      stopTimer();
-      onExpire();
-    }
-  }, 1000);
-}
-
-function stopTimer() {
-  if (state.timerInterval) {
-    clearInterval(state.timerInterval);
-    state.timerInterval = null;
+    userMarker.setLatLng(latlng);
+    accuracyCircle.setLatLng(latlng);
+    accuracyCircle.setRadius(accuracy || 30);
   }
 }
 
-function updateTimerUI() {
-  const pct = (state.timerRemaining / state.timerSeconds) * 100;
-  $('timer-text').textContent = state.timerRemaining;
-  const bar = $('timer-bar');
-  bar.style.width = pct + '%';
-  bar.classList.toggle('warning', state.timerRemaining <= 10);
+function clearPoiMarkers() {
+  state.markers.forEach(m => map.removeLayer(m));
+  state.markers.clear();
 }
 
-function submitDefinition(forced = false) {
-  const text = $('def-input').value.trim();
-  if (!text && !forced) { notify('Please write a definition.'); return; }
-  stopTimer();
-
-  state.definitions.push({
-    playerId: state.writePlayerIndex,
-    text: text || '(no answer)',
-    isReal: false,
+function renderMarkers(pois) {
+  clearPoiMarkers();
+  pois.forEach((poi, i) => {
+    const marker = L.marker([poi.lat, poi.lon], {
+      icon: L.divIcon({ className: '', html: `<div class="poi-pin"><span>${i + 1}</span></div>`, iconSize: [30, 30], iconAnchor: [15, 28] })
+    }).addTo(map);
+    marker.on('click', () => focusCard(poi.pageid));
+    state.markers.set(poi.pageid, marker);
   });
-
-  state.writePlayerIndex++;
-  if (state.writePlayerIndex < state.players.length) {
-    showPassScreen();
-  } else {
-    beginVotingPhase();
-  }
 }
 
-// ================================================================
-//  VOTING PHASE
-// ================================================================
-function beginVotingPhase() {
-  // Build shuffled definition list including the real one
-  const realDef = {
-    playerId: -1,
-    text: state.currentWord.definition,
-    isReal: true,
-  };
-  state.shuffledDefs = shuffle([...state.definitions, realDef]);
-  showVotePassScreen();
+function focusCard(pageid) {
+  document.querySelectorAll('.poi-card').forEach(el => el.classList.remove('active'));
+  const card = document.getElementById('card-' + pageid);
+  if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  setSheetState('expanded');
 }
 
-function showVotePassScreen() {
-  const player = state.players[state.votePlayerIndex];
-  $('vote-pass-player-name').textContent = player.name;
-  showScreen('screen-vote-pass');
+/* =========================================================================
+   Geolocation
+   ========================================================================= */
+function getPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error('Geolocation is not available on this device.')); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve(pos.coords),
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+  });
 }
 
-function startPlayerVote() {
-  const player = state.players[state.votePlayerIndex];
-  const word = state.currentWord;
+function startWatch() {
+  if (state.watchId != null) return;
+  state.watchId = navigator.geolocation.watchPosition(
+    pos => onWatchTick(pos.coords),
+    err => showToast(geoErrorMessage(err), true),
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+  );
+}
+function stopWatch() {
+  if (state.watchId != null) { navigator.geolocation.clearWatch(state.watchId); state.watchId = null; }
+}
 
-  $('vote-round-badge').textContent = `Round ${state.currentRound} of ${state.rounds}`;
-  $('vote-word-display').textContent = word.word;
-  $('vote-player-label').textContent = player.name;
-  $('vote-btn').disabled = true;
+function onWatchTick(coords) {
+  state.userPos = coords;
+  updateUserMarker(coords.latitude, coords.longitude, coords.accuracy);
+  if (state.mode !== 'live') return;
 
-  const list = $('vote-list');
-  list.innerHTML = '';
+  const now = Date.now();
+  if (now - state.lastLiveTick < CONFIG.liveWatchMinIntervalMs) return;
+  state.lastLiveTick = now;
 
-  state.shuffledDefs.forEach((def, i) => {
-    const slip = document.createElement('div');
-    slip.className = 'vote-slip';
-    slip.setAttribute('data-letter', LETTERS[i]);
+  if (shouldRefreshLive(coords)) runLookup(coords, { live: true });
+}
 
-    // Prevent voting for own definition
-    const isOwn = !def.isReal && def.playerId === state.votePlayerIndex;
-    if (isOwn) slip.classList.add('disabled');
+function shouldRefreshLive(coords) {
+  if (state.mode !== 'live') return false;
+  if (!state.lastLookup.pos) return true;
+  if (document.getElementById('mainBtnWrap').classList.contains('working')) return false;
+  const dist = haversine(state.lastLookup.pos.latitude, state.lastLookup.pos.longitude, coords.latitude, coords.longitude);
+  const elapsed = Date.now() - state.lastLookup.time;
+  return dist >= CONFIG.liveMoveThresholdMeters || elapsed >= CONFIG.liveTimeThresholdMs;
+}
 
-    slip.innerHTML = `<span class="slip-text">${escHtml(def.text)}</span>`;
+function geoErrorMessage(err) {
+  if (err && err.code === 1) return 'Location permission denied — Cicerone needs it to find what’s nearby.';
+  if (err && err.code === 3) return 'Location timed out — try again in the open sky.';
+  return 'Could not get your location.';
+}
 
-    if (!isOwn) {
-      slip.addEventListener('click', () => {
-        list.querySelectorAll('.vote-slip').forEach(s => s.classList.remove('selected'));
-        slip.classList.add('selected');
-        slip.dataset.chosenIndex = i;
-        $('vote-btn').disabled = false;
-        $('vote-btn').dataset.choice = i;
+/* =========================================================================
+   Wikipedia geosearch + extracts + categories (single combined request)
+   ========================================================================= */
+async function fetchNearby(lat, lon) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    generator: 'geosearch',
+    ggscoord: `${lat}|${lon}`,
+    ggsradius: String(CONFIG.radiusMeters),
+    ggslimit: String(CONFIG.maxResultsFetched),
+    ggsnamespace: '0',
+    prop: 'extracts|coordinates|categories',
+    exintro: '1', explaintext: '1', exchars: '420', exlimit: 'max',
+    colimit: 'max',
+    cllimit: 'max', clshow: '!hidden'
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) throw new Error('Wikipedia request failed (' + res.status + ')');
+  const data = await res.json();
+  const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
+  return pages
+    .filter(p => p.coordinates && p.coordinates[0])
+    .map(p => ({
+      pageid: p.pageid,
+      title: p.title,
+      extract: (p.extract || '').trim(),
+      lat: p.coordinates[0].lat,
+      lon: p.coordinates[0].lon,
+      categories: (p.categories || []).map(c => c.title.replace(/^Category:/, '')),
+      url: 'https://en.wikipedia.org/?curid=' + p.pageid
+    }));
+}
+
+async function fetchFullExtract(pageid) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    pageids: String(pageid),
+    prop: 'extracts', explaintext: '1', exchars: '2000'
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) throw new Error('Wikipedia request failed');
+  const data = await res.json();
+  const page = data.query && data.query.pages && Object.values(data.query.pages)[0];
+  return page ? (page.extract || '').trim() : '';
+}
+
+function classify(poi) {
+  const tags = [];
+  const catText = poi.categories.join(' | ');
+  CONFIG.categoryFilters.forEach(f => {
+    if (f.re && f.re.test(catText)) tags.push(f.id);
+  });
+  const obscure = tags.length === 0 && poi.categories.length <= 2; // no strong topical match and barely categorised
+  if (obscure) tags.unshift('hiddenGems'); // lead with this so it becomes the card's primary badge
+  if (tags.length === 0) tags.push('history'); // geosearch results skew historic/landmark by nature
+  return tags;
+}
+
+/* =========================================================================
+   Narration layer — the swappable seam.
+   Keyless default: returns the real extract, verbatim (truth only).
+   If CONFIG.narrationEndpoint is set, POSTs the same real facts to a proxy
+   that can turn them into persona-voiced copy, and falls back to the plain
+   extract on any failure so the app never blocks on the network call.
+   ========================================================================= */
+async function narrate(poi, persona, opts) {
+  opts = opts || {};
+  const full = !!opts.full;
+  const text = full && poi.fullExtract ? poi.fullExtract : poi.extract;
+
+  if (CONFIG.narrationEndpoint) {
+    try {
+      const res = await fetch(CONFIG.narrationEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          persona: persona.id === 'custom' ? { id: 'custom', description: state.customPersonaText } : { id: persona.id, name: persona.name },
+          fact: { title: poi.title, extract: text, distanceMeters: Math.round(poi.distance), compass: poi.compass },
+          full
+        })
       });
-    }
-    list.appendChild(slip);
-  });
-
-  showScreen('screen-vote');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.narration) return data.narration;
+      }
+    } catch (e) { /* fall through to keyless passthrough */ }
+  }
+  return text || 'No description available for this place yet.';
 }
 
-function submitVote() {
-  const choice = parseInt($('vote-btn').dataset.choice);
-  if (isNaN(choice)) return;
-  state.votes[state.votePlayerIndex] = choice;
+function currentPersona() {
+  return CONFIG.personas.find(p => p.id === state.personaId) || CONFIG.personas[0];
+}
 
-  state.votePlayerIndex++;
-  if (state.votePlayerIndex < state.players.length) {
-    showVotePassScreen();
-  } else {
-    showResults();
+/* =========================================================================
+   Lookup pipeline
+   ========================================================================= */
+async function doSingleLookup() {
+  if (state.mode === 'working') return;
+  setMode('working');
+  try {
+    const coords = await getPosition();
+    state.userPos = coords;
+    updateUserMarker(coords.latitude, coords.longitude, coords.accuracy);
+    await runLookup(coords, { live: false });
+  } catch (err) {
+    showToast(err.message || geoErrorMessage(err), true);
+  } finally {
+    if (state.mode === 'working') setMode('idle');
   }
 }
 
-// ================================================================
-//  RESULTS
-// ================================================================
-function showResults() {
-  // Calculate scores
-  const roundDeltas = state.players.map(() => 0);
+function toggleLiveOn() {
+  if (state.mode === 'live') return;
+  setMode('live');
+  startWatch();
+  getPosition().then(coords => {
+    state.userPos = coords;
+    updateUserMarker(coords.latitude, coords.longitude, coords.accuracy);
+    runLookup(coords, { live: true });
+  }).catch(err => showToast(err.message || geoErrorMessage(err), true));
+}
 
-  state.players.forEach((_, pid) => {
-    const choiceIdx = state.votes[pid];
-    if (choiceIdx === undefined) return;
-    const chosen = state.shuffledDefs[choiceIdx];
-    if (chosen.isReal) {
-      roundDeltas[pid] += 1; // guessed correctly
+function stopLiveMode() {
+  stopWatch();
+  setMode('idle');
+}
+
+async function runLookup(coords, opts) {
+  const wasWorkingBefore = state.mode === 'working';
+  if (opts.live && !wasWorkingBefore) markWorkingOverlay(true);
+
+  const key = roundCoordKey(coords.latitude, coords.longitude);
+  let pois;
+  try {
+    if (state.cache.has(key)) {
+      pois = state.cache.get(key);
     } else {
-      roundDeltas[chosen.playerId] += 1; // fooled someone
+      const raw = await fetchNearby(coords.latitude, coords.longitude);
+      pois = raw.map(p => {
+        const distance = haversine(coords.latitude, coords.longitude, p.lat, p.lon);
+        const b = bearing(coords.latitude, coords.longitude, p.lat, p.lon);
+        return Object.assign(p, { distance, bearingDeg: b, compass: compassLabel(b), tags: classify(p) });
+      }).sort((a, b) => a.distance - b.distance);
+      state.cache.set(key, pois);
     }
-  });
+  } catch (err) {
+    showToast('Couldn’t reach Wikipedia — check your connection.', true);
+    if (opts.live) markWorkingOverlay(false);
+    return;
+  }
 
-  roundDeltas.forEach((d, i) => { state.players[i].score += d; });
+  state.lastLookup = { pos: coords, time: Date.now() };
 
-  // Build results display
-  $('results-round-badge').textContent = `Round ${state.currentRound} of ${state.rounds}`;
-  $('results-word-display').textContent = state.currentWord.word;
+  const filtered = pois.filter(p => p.tags.some(t => state.filters[t]));
+  const shown = filtered.slice(0, CONFIG.maxResultsShown);
+  state.currentPois = shown;
 
-  const resultsList = $('results-list');
-  resultsList.innerHTML = '';
+  renderMarkers(shown);
+  const persona = currentPersona();
+  await renderCards(shown, persona);
 
-  state.shuffledDefs.forEach((def, i) => {
-    const votedByNames = state.players
-      .filter((_, pid) => state.votes[pid] === i)
-      .map(p => p.name);
-
-    const slip = document.createElement('div');
-    slip.className = 'result-slip' + (def.isReal ? ' real' : '');
-    slip.innerHTML = `
-      <span class="slip-letter">${LETTERS[i]}</span>
-      <p class="slip-text">${escHtml(def.text)}</p>
-      <div class="slip-meta">
-        ${def.isReal
-          ? `<span class="author-tag correct-badge">REAL DEFINITION</span>`
-          : `<span class="author-tag">${escHtml(state.players[def.playerId].name)}</span>`
-        }
-        ${votedByNames.length
-          ? votedByNames.map(n =>
-              def.isReal
-                ? `<span class="correct-badge">${escHtml(n)} ✓</span>`
-                : `<span class="fooled-badge">fooled ${escHtml(n)}</span>`
-            ).join('')
-          : ''
-        }
-      </div>
-    `;
-    resultsList.appendChild(slip);
-  });
-
-  // Render running scores
-  renderScoreList('results-scores', roundDeltas);
-
-  $('next-round-btn').textContent =
-    state.currentRound < state.rounds ? 'Next Round →' : 'Final Scores →';
-
-  showScreen('screen-results');
-}
-
-function renderScoreList(elId, deltas) {
-  const el = $(elId);
-  el.innerHTML = '';
-  const sorted = [...state.players]
-    .map((p, i) => ({ ...p, idx: i, delta: deltas ? deltas[i] : 0 }))
-    .sort((a, b) => b.score - a.score);
-
-  sorted.forEach((p, rank) => {
-    const li = document.createElement('li');
-    li.className = 'score-row';
-    const deltaText = deltas && p.delta !== 0
-      ? `<span class="score-delta positive">+${p.delta}</span>`
-      : deltas ? `<span class="score-delta">+0</span>` : '';
-    li.innerHTML = `
-      <span class="score-rank">${rank + 1}.</span>
-      <span class="score-name">${escHtml(p.name)}</span>
-      ${deltaText}
-      <span class="score-pts">${p.score}</span>
-    `;
-    el.appendChild(li);
-  });
-}
-
-// ================================================================
-//  NEXT ROUND / FINAL
-// ================================================================
-function nextRound() {
-  if (state.currentRound < state.rounds) {
-    startRound();
+  if (shown.length) {
+    setSheetState('expanded');
+    logJournalEntry(coords, shown);
   } else {
-    showFinalScreen();
+    document.getElementById('emptyHint').hidden = false;
+    document.getElementById('emptyHint').textContent = pois.length
+      ? 'Found places nearby, but none match your current filters.'
+      : `Nothing catalogued within ${CONFIG.radiusMeters}m — try moving a little, or widen the radius in Settings.`;
+    setSheetState('peek');
+  }
+
+  if (opts.live) markWorkingOverlay(false);
+}
+
+function markWorkingOverlay(on) {
+  const wrap = document.getElementById('mainBtnWrap');
+  if (on) { wrap.classList.add('working'); } else if (state.mode === 'live') { wrap.classList.remove('working'); }
+}
+
+/* =========================================================================
+   Cards
+   ========================================================================= */
+async function renderCards(pois, persona) {
+  const list = document.getElementById('cardsList');
+  const emptyHint = document.getElementById('emptyHint');
+  emptyHint.hidden = pois.length > 0;
+  list.innerHTML = '';
+  document.getElementById('sheetCount').textContent = pois.length ? pois.length + (pois.length === 1 ? ' place' : ' places') : '';
+
+  cancelSpeech();
+  const myQueueId = ++state.speechQueueId;
+
+  for (let i = 0; i < pois.length; i++) {
+    const poi = pois[i];
+    const hook = await narrate(poi, persona, { full: false });
+    poi.hook = firstSentence(hook, 160);
+
+    const card = document.createElement('div');
+    card.className = 'poi-card';
+    card.id = 'card-' + poi.pageid;
+    const tagLabel = (CONFIG.categoryFilters.find(f => f.id === poi.tags[0]) || {}).label || 'Nearby';
+    card.innerHTML = `
+      <div class="poi-card-head">
+        <span class="poi-index">${i + 1}</span>
+        <div class="poi-title-wrap">
+          <h3>${escapeHtml(poi.title)}</h3>
+          <span class="poi-meta">${poi.compass} · ${COMPASS_WORD[poi.compass]} · ${formatDistance(poi.distance)}</span>
+        </div>
+        <span class="poi-tag">${escapeHtml(tagLabel)}</span>
+      </div>
+      <p class="poi-hook">${escapeHtml(poi.hook)}</p>
+      <div class="poi-actions">
+        <button class="tell-more-btn" data-pageid="${poi.pageid}">Tell me more</button>
+        <button class="speak-btn" data-pageid="${poi.pageid}" title="Read this aloud">🔊</button>
+      </div>
+      <div class="poi-full" id="full-${poi.pageid}" hidden></div>
+    `;
+    list.appendChild(card);
+
+    if (state.voiceOn && myQueueId === state.speechQueueId) {
+      speak(`${poi.compass}, ${formatDistance(poi.distance)}: ${poi.title}. ${poi.hook}`, persona);
+    }
+  }
+
+  list.querySelectorAll('.tell-more-btn').forEach(btn => btn.addEventListener('click', onTellMore));
+  list.querySelectorAll('.speak-btn').forEach(btn => btn.addEventListener('click', onSpeakCard));
+}
+
+function firstSentence(text, maxLen) {
+  if (!text) return '';
+  const m = text.match(/^.{1,}?[.!?](\s|$)/);
+  let s = m ? m[0].trim() : text;
+  if (s.length > maxLen) s = s.slice(0, maxLen).trim() + '…';
+  return s;
+}
+
+async function onTellMore(e) {
+  const pageid = e.currentTarget.getAttribute('data-pageid');
+  const poi = state.currentPois.find(p => String(p.pageid) === String(pageid));
+  const full = document.getElementById('full-' + pageid);
+  if (!poi || !full) return;
+
+  if (!full.hidden) { full.hidden = true; return; }
+  full.hidden = false;
+
+  if (full.dataset.loaded === '1') return;
+  full.classList.add('loading');
+  full.textContent = 'Fetching more…';
+  try {
+    if (!poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid);
+    const persona = currentPersona();
+    const deeper = await narrate(poi, persona, { full: true });
+    full.classList.remove('loading');
+    full.innerHTML = `<p>${escapeHtml(deeper)}</p><span class="poi-source">Source: <a href="${poi.url}" target="_blank" rel="noopener">Wikipedia</a></span>`;
+    full.dataset.loaded = '1';
+    if (state.voiceOn) speak(deeper, persona);
+  } catch (err) {
+    full.classList.remove('loading');
+    full.textContent = 'Couldn’t fetch more detail right now.';
   }
 }
 
-function showFinalScreen() {
-  const sorted = [...state.players].sort((a, b) => b.score - a.score);
-  const winner = sorted[0];
-
-  $('winner-name-display').textContent = winner.name;
-  renderScoreList('final-scores', null);
-  showScreen('screen-final');
+function onSpeakCard(e) {
+  const pageid = e.currentTarget.getAttribute('data-pageid');
+  const poi = state.currentPois.find(p => String(p.pageid) === String(pageid));
+  if (!poi) return;
+  cancelSpeech();
+  speak(`${poi.title}. ${poi.hook}`, currentPersona());
 }
 
-function resetGame() {
-  state.players.forEach(p => p.score = 0);
-  state.currentRound = 0;
-  showScreen('screen-setup');
-  renderPlayerList();
+/* =========================================================================
+   Speech synthesis
+   ========================================================================= */
+function speak(text, persona) {
+  if (!('speechSynthesis' in window) || !text) return;
+  const u = new SpeechSynthesisUtterance(text);
+  const v = persona.voice || { rate: 1, pitch: 1 };
+  u.rate = v.rate; u.pitch = v.pitch;
+  window.speechSynthesis.speak(u);
+}
+function cancelSpeech() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 }
 
-// ================================================================
-//  HELPERS
-// ================================================================
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+/* =========================================================================
+   Button / mode control
+   ========================================================================= */
+function setMode(mode) {
+  state.mode = mode;
+  const wrap = document.getElementById('mainBtnWrap');
+  const icon = document.getElementById('mainBtnIcon');
+  const label = document.getElementById('mainBtnLabel');
+  const status = document.getElementById('statusLine');
+  wrap.classList.remove('idle', 'working', 'live');
+  wrap.classList.add(mode);
+
+  if (mode === 'idle') {
+    icon.textContent = '\u{1F9ED}'; label.textContent = CONFIG.buttonName;
+    status.textContent = `Tap for a lookup · hold to follow you`;
+    status.classList.remove('err');
+  } else if (mode === 'working') {
+    icon.textContent = '\u{1F4E1}'; label.textContent = CONFIG.buttonNameWorking;
+    status.textContent = 'Looking around…';
+  } else if (mode === 'live') {
+    icon.textContent = '\u{1F6B6}'; label.textContent = CONFIG.buttonNameLive;
+    status.textContent = 'Live · tap to stop following';
+  }
 }
+
+function showToast(msg, isErr) {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = 'toast' + (isErr ? ' err' : '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+  if (isErr) {
+    const status = document.getElementById('statusLine');
+    status.textContent = msg;
+    status.classList.add('err');
+  }
+}
+
+function setupMainButton() {
+  const btn = document.getElementById('mainBtn');
+  let pressTimer = null;
+  let longPressFired = false;
+  const LONG_PRESS_MS = 550;
+
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    longPressFired = false;
+    pressTimer = setTimeout(() => {
+      longPressFired = true;
+      if (state.mode !== 'live') toggleLiveOn();
+    }, LONG_PRESS_MS);
+  });
+
+  const clear = () => { clearTimeout(pressTimer); };
+  btn.addEventListener('pointerup', () => {
+    clear();
+    if (longPressFired) return;
+    if (state.mode === 'live') stopLiveMode();
+    else if (state.mode === 'idle') doSingleLookup();
+  });
+  btn.addEventListener('pointercancel', clear);
+  btn.addEventListener('pointerleave', clear);
+}
+
+/* =========================================================================
+   Sheet
+   ========================================================================= */
+function setSheetState(s) {
+  state.sheetState = s;
+  const sheet = document.getElementById('sheet');
+  sheet.classList.remove('peek', 'expanded', 'hidden-sheet');
+  sheet.classList.add(s);
+}
+function setupSheet() {
+  const handle = document.getElementById('sheetHandle');
+  handle.addEventListener('click', () => {
+    setSheetState(state.sheetState === 'expanded' ? 'peek' : 'expanded');
+  });
+  let startY = null;
+  handle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  handle.addEventListener('touchend', e => {
+    if (startY == null) return;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy < -30) setSheetState('expanded');
+    else if (dy > 30) setSheetState('peek');
+    startY = null;
+  }, { passive: true });
+}
+
+/* =========================================================================
+   Filters (chip row on the main screen + settings modal)
+   ========================================================================= */
+function renderChips() {
+  ['chipRow', 'settingsChipRow'].forEach(id => {
+    const row = document.getElementById(id);
+    row.innerHTML = '';
+    CONFIG.categoryFilters.forEach(f => {
+      const chip = document.createElement('button');
+      chip.className = 'chip' + (state.filters[f.id] ? ' on' : '');
+      chip.textContent = f.label;
+      chip.addEventListener('click', () => {
+        state.filters[f.id] = !state.filters[f.id];
+        saveSetting('filters', state.filters);
+        renderChips();
+        if (state.currentPois.length || state.lastLookup.pos) reapplyFilters();
+      });
+      row.appendChild(chip);
+    });
+  });
+}
+
+function reapplyFilters() {
+  const key = state.lastLookup.pos && roundCoordKey(state.lastLookup.pos.latitude, state.lastLookup.pos.longitude);
+  const pois = key && state.cache.get(key);
+  if (!pois) return;
+  const filtered = pois.filter(p => p.tags.some(t => state.filters[t])).slice(0, CONFIG.maxResultsShown);
+  state.currentPois = filtered;
+  renderMarkers(filtered);
+  renderCards(filtered, currentPersona());
+}
+
+/* =========================================================================
+   Settings modal
+   ========================================================================= */
+function renderPersonaList() {
+  const wrap = document.getElementById('personaList');
+  wrap.innerHTML = '';
+  CONFIG.personas.forEach(p => {
+    const opt = document.createElement('label');
+    opt.className = 'persona-opt' + (state.personaId === p.id ? ' sel' : '');
+    opt.innerHTML = `
+      <input type="radio" name="persona" value="${p.id}" ${state.personaId === p.id ? 'checked' : ''}>
+      <div><div class="p-name">${escapeHtml(p.name)}</div><div class="p-desc">${escapeHtml(p.desc)}</div></div>
+    `;
+    opt.querySelector('input').addEventListener('change', () => {
+      state.personaId = p.id;
+      saveSetting('personaId', p.id);
+      renderPersonaList();
+      document.getElementById('customPersonaInput').hidden = p.id !== 'custom';
+    });
+    wrap.appendChild(opt);
+  });
+  document.getElementById('customPersonaInput').hidden = state.personaId !== 'custom';
+}
+
+function setupSettingsModal() {
+  const backdrop = document.getElementById('settingsBackdrop');
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    document.getElementById('appNameInput').value = CONFIG.appName;
+    document.getElementById('buttonNameInput').value = CONFIG.buttonName;
+    document.getElementById('radiusRange').value = CONFIG.radiusMeters;
+    document.getElementById('radiusHint').textContent = CONFIG.radiusMeters + ' m';
+    document.getElementById('moveRange').value = CONFIG.liveMoveThresholdMeters;
+    document.getElementById('moveHint').textContent = CONFIG.liveMoveThresholdMeters + ' m';
+    document.getElementById('customPersonaInput').value = state.customPersonaText;
+    renderPersonaList();
+    backdrop.classList.add('open');
+  });
+  document.getElementById('settingsClose').addEventListener('click', () => backdrop.classList.remove('open'));
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.classList.remove('open'); });
+
+  document.getElementById('customPersonaInput').addEventListener('input', e => {
+    state.customPersonaText = e.target.value;
+    saveSetting('customPersonaText', state.customPersonaText);
+  });
+
+  const voiceToggle = document.getElementById('voiceToggle');
+  voiceToggle.classList.toggle('on', state.voiceOn);
+  voiceToggle.addEventListener('click', () => {
+    state.voiceOn = !state.voiceOn;
+    saveSetting('voiceOn', state.voiceOn);
+    voiceToggle.classList.toggle('on', state.voiceOn);
+    if (!state.voiceOn) cancelSpeech();
+  });
+
+  document.getElementById('radiusRange').addEventListener('input', e => {
+    CONFIG.radiusMeters = Number(e.target.value);
+    document.getElementById('radiusHint').textContent = CONFIG.radiusMeters + ' m';
+  });
+  document.getElementById('moveRange').addEventListener('input', e => {
+    CONFIG.liveMoveThresholdMeters = Number(e.target.value);
+    document.getElementById('moveHint').textContent = CONFIG.liveMoveThresholdMeters + ' m';
+  });
+
+  document.getElementById('appNameInput').addEventListener('change', e => {
+    CONFIG.appName = e.target.value.trim() || 'Cicerone';
+    saveSetting('appName', CONFIG.appName);
+    applyNaming();
+  });
+  document.getElementById('buttonNameInput').addEventListener('change', e => {
+    CONFIG.buttonName = e.target.value.trim() || 'Show Me';
+    saveSetting('buttonName', CONFIG.buttonName);
+    applyNaming();
+    if (state.mode === 'idle') setMode('idle');
+  });
+
+  document.getElementById('clearCacheBtn').addEventListener('click', () => {
+    state.cache.clear();
+    showToast('Lookup cache cleared.');
+  });
+  document.getElementById('resetSettingsBtn').addEventListener('click', () => {
+    ['appName', 'buttonName', 'personaId', 'customPersonaText', 'voiceOn', 'filters'].forEach(k => {
+      try { localStorage.removeItem('cicerone.' + k); } catch (e) {}
+    });
+    location.reload();
+  });
+}
+
+function applyNaming() {
+  document.getElementById('brandMark').textContent = CONFIG.appName;
+  document.title = CONFIG.appName + ' — Walking Tour Guide';
+  document.getElementById('emptyHintBtnName').textContent = CONFIG.buttonName;
+}
+
+/* =========================================================================
+   Walk journal
+   ========================================================================= */
+function loadJournal() {
+  try { return JSON.parse(localStorage.getItem('cicerone.journal') || '[]'); } catch (e) { return []; }
+}
+function saveJournal(entries) {
+  try { localStorage.setItem('cicerone.journal', JSON.stringify(entries.slice(-200))); } catch (e) {}
+}
+function logJournalEntry(coords, pois) {
+  const entries = loadJournal();
+  entries.push({
+    time: new Date().toISOString(),
+    lat: Number(coords.latitude.toFixed(4)),
+    lon: Number(coords.longitude.toFixed(4)),
+    persona: currentPersona().name,
+    places: pois.map(p => ({ title: p.title, compass: p.compass, distanceMeters: Math.round(p.distance), hook: p.hook }))
+  });
+  saveJournal(entries);
+}
+
+function renderJournal() {
+  const list = document.getElementById('journalList');
+  const empty = document.getElementById('journalEmpty');
+  const entries = loadJournal().slice().reverse();
+  list.innerHTML = '';
+  empty.hidden = entries.length > 0;
+  entries.forEach(entry => {
+    const el = document.createElement('div');
+    el.className = 'journal-entry';
+    const d = new Date(entry.time);
+    el.innerHTML = `
+      <div class="journal-date">${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
+      <div class="journal-loc">${entry.lat}, ${entry.lon} · as ${escapeHtml(entry.persona)}</div>
+      <ul class="journal-pois">${entry.places.map(p => `<li>${escapeHtml(p.title)} — ${p.compass}, ${p.distanceMeters}m</li>`).join('')}</ul>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function setupJournalModal() {
+  const backdrop = document.getElementById('journalBackdrop');
+  document.getElementById('journalBtn').addEventListener('click', () => { renderJournal(); backdrop.classList.add('open'); });
+  document.getElementById('journalClose').addEventListener('click', () => backdrop.classList.remove('open'));
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.classList.remove('open'); });
+
+  document.getElementById('exportJournalBtn').addEventListener('click', () => {
+    const entries = loadJournal();
+    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'cicerone-walk-journal.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById('clearJournalBtn').addEventListener('click', () => {
+    saveJournal([]);
+    renderJournal();
+  });
+}
+
+/* =========================================================================
+   Boot
+   ========================================================================= */
+function init() {
+  initMap();
+  applyNaming();
+  setMode('idle');
+  setupMainButton();
+  setupSheet();
+  setupSettingsModal();
+  setupJournalModal();
+  renderChips();
+  document.getElementById('mainBtnLabel').textContent = CONFIG.buttonName;
+}
+
+document.addEventListener('DOMContentLoaded', init);
+})();
 </script>
 </body>
 </html>
