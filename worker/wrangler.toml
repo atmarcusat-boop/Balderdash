@@ -1,0 +1,17 @@
+name = "beau-narration-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Comma-separated list of origins allowed to call this worker.
+# Update if the app is served from a different URL.
+ALLOWED_ORIGIN = "https://atmarcusat-boop.github.io"
+
+# Model used for narration. Defaults to Claude Opus 5. A lighter/faster
+# model (e.g. "claude-haiku-4-5") trades narration quality for lower cost
+# and latency on this short, high-frequency task — change here if wanted.
+MODEL_ID = "claude-opus-5"
+
+# Set the real secret after deploying (never commit it):
+#   npx wrangler secret put ANTHROPIC_API_KEY
