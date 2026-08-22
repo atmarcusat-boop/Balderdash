@@ -118,6 +118,7 @@ export default {
 
       return json({ narration }, 200, headers);
     } catch (err) {
+      console.error('Anthropic call failed:', err instanceof Error ? err.message : err);
       let status = 502;
       if (err instanceof Anthropic.RateLimitError) status = 429;
       else if (err instanceof Anthropic.AuthenticationError) status = 500; // misconfigured key, not the caller's fault
