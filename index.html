@@ -292,7 +292,7 @@ html, body {
   font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--muted); margin-bottom: 16px;
 }
-.reveal-text { font-size: 21px; line-height: 1.5; color: var(--paper); font-family: var(--font-display); font-weight: 500; }
+.reveal-text { font-size: 16px; line-height: 1.5; color: var(--paper); font-family: var(--font-display); font-weight: 500; }
 
 /* Real photos of the actual places, straight from Wikipedia's own
    pageimages thumbnail for that article — never generated. Empty and
@@ -321,12 +321,8 @@ html, body {
 .passage-next .para-icon { color: var(--live); opacity: 1; }
 .passage-next p { color: var(--muted); font-style: italic; }
 
-/* ============ Passage actions / deeper detail (shared: reveal panel + settings-style bits) ============ */
-.passage-actions { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
-.tell-more-btn {
-  background: none; border: none; color: var(--accent-light); font-size: 13px; font-weight: 600;
-  cursor: pointer; padding: 4px 0;
-}
+/* ============ Passage actions (shared: reveal panel + settings-style bits) ============ */
+.passage-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .speak-btn {
   background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px 6px;
   display: flex; align-items: center; justify-content: center;
@@ -334,12 +330,6 @@ html, body {
 }
 .speak-btn svg { width: 17px; height: 17px; display: block; }
 .speak-btn:hover { color: var(--paper); }
-.poi-full {
-  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
-  font-size: 15px; line-height: 1.6; color: var(--muted);
-}
-.poi-full .para-icon { width: 16px; height: 16px; margin-top: 3px; }
-.poi-full.loading { font-style: italic; }
 .poi-source { display: block; margin-top: 10px; font-size: 11px; color: var(--muted-2); }
 .poi-source a { color: var(--accent-light); }
 
@@ -506,10 +496,9 @@ html, body {
     <div class="passage-images" id="revealImages"></div>
     <div class="reveal-text" id="revealText"></div>
     <div class="passage-actions">
-      <button class="tell-more-btn" id="revealMoreBtn">Tell me more</button>
       <button class="speak-btn" id="revealSpeakBtn" title="Read this aloud"></button>
     </div>
-    <div class="poi-full" id="revealFull" hidden></div>
+    <span class="poi-source" id="revealSources"></span>
 
     <div class="followups" id="followups" hidden>
       <div class="followups-chips" id="followupChips"></div>
@@ -1166,19 +1155,6 @@ async function enrichThinPoi(poi) {
   } catch (e) { /* keep the existing tour-guide-phrased fallback */ }
 }
 
-async function fetchFullExtract(pageid) {
-  const params = new URLSearchParams({
-    action: 'query', format: 'json', origin: '*',
-    pageids: String(pageid),
-    prop: 'extracts', explaintext: '1', exchars: '2000'
-  });
-  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
-  if (!res.ok) throw new Error('Wikipedia request failed');
-  const data = await res.json();
-  const page = data.query && data.query.pages && Object.values(data.query.pages)[0];
-  return page ? (page.extract || '').trim() : '';
-}
-
 /* =========================================================================
    Narration layer — the swappable seam.
    Keyless default: returns the real extract, verbatim (truth only).
@@ -1378,6 +1354,10 @@ async function askFollowup(question) {
   const persona = currentPersona();
   answerEl.hidden = false;
   answerEl.innerHTML = '<p class="followup-loading">Beau is thinking…</p>';
+  // The panel scrolls internally and the answer renders below the ask box,
+  // so without this it can silently land off-screen and look like nothing
+  // happened.
+  answerEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const raw = await askQuestion(pois, persona, q);
   if (!raw) {
@@ -1527,8 +1507,7 @@ async function renderPassage(pois, persona) {
   const textEl = document.getElementById('revealText');
   renderPassageBlock(textEl, passage);
   textEl.dataset.spoken = speechTextFrom(passage);
-  document.getElementById('revealFull').hidden = true;
-  document.getElementById('revealFull').dataset.loaded = '';
+  document.getElementById('revealSources').innerHTML = sourceLineFor(narrated);
 
   const answerEl = document.getElementById('followupAnswer');
   answerEl.hidden = true;
@@ -1597,52 +1576,21 @@ function shortFact(text, targetChars) {
   return (lastSpace > targetChars * 0.4 ? window.slice(0, lastSpace) : window).trim() + '.';
 }
 
-/* One combined deeper passage for every place in the current stop, written
-   as a single narrative by narrateMany — not a per-place paragraph glued
-   together with the place's name as a header. */
-async function onRevealMore() {
-  const fullEl = document.getElementById('revealFull');
-  const pois = state.passagePois;
-  if (!pois.length) return;
-
-  if (!fullEl.hidden) { fullEl.hidden = true; return; }
-  fullEl.hidden = false;
-  if (fullEl.dataset.loaded === '1') return;
-
-  fullEl.classList.add('loading');
-  fullEl.textContent = 'Fetching more…';
-  try {
-    const persona = currentPersona();
-    for (const poi of pois) {
-      if (poi.pageid && !poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid).catch(() => poi.extract);
-      else if (!poi.fullExtract) poi.fullExtract = poi.extract;
-    }
-    const raw = await narrateMany(pois, persona, { full: true });
-    const { body: combined, questions } = splitFollowups(raw);
-    fullEl.classList.remove('loading');
-    renderPassageBlock(fullEl, combined);
-    fullEl.dataset.spoken = speechTextFrom(combined);
-    const sourceLine = pois.map(p => {
-      const label = p.pageid ? 'Wikipedia' : (p.source === 'osm+wikidata' ? 'Wikidata' : 'OpenStreetMap');
-      return `<a href="${p.url}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a> (${label})`;
-    }).join(' · ');
-    fullEl.insertAdjacentHTML('beforeend', `<span class="poi-source">Sources: ${sourceLine}</span>`);
-    fullEl.dataset.loaded = '1';
-    if (questions.length) renderFollowupChips(questions);
-    if (state.voiceOn) speak(fullEl.dataset.spoken, persona);
-  } catch (err) {
-    fullEl.classList.remove('loading');
-    fullEl.textContent = 'Couldn’t fetch more detail right now.';
-  }
+/* Small "Sources: X · Y" credit line for whatever's actually in the
+   current passage — always shown, no button needed to reveal it. */
+function sourceLineFor(pois) {
+  if (!pois.length) return '';
+  const links = pois.map(p => {
+    const label = p.pageid ? 'Wikipedia' : (p.source && p.source.includes('wikidata') ? 'Wikidata' : 'OpenStreetMap');
+    return `<a href="${p.url}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a> (${label})`;
+  }).join(' · ');
+  return `Sources: ${links}`;
 }
 
 function onRevealSpeak() {
-  const fullEl = document.getElementById('revealFull');
-  const textEl = document.getElementById('revealText');
   cancelSpeech();
   const persona = currentPersona();
-  const spoken = (!fullEl.hidden && fullEl.dataset.loaded === '1') ? fullEl.dataset.spoken : textEl.dataset.spoken;
-  speak(spoken, persona);
+  speak(document.getElementById('revealText').dataset.spoken, persona);
 }
 
 /* =========================================================================
@@ -1731,7 +1679,6 @@ function setupReveal() {
   const backdrop = document.getElementById('revealBackdrop');
   document.getElementById('revealClose').addEventListener('click', hideReveal);
   backdrop.addEventListener('click', e => { if (e.target === backdrop) hideReveal(); });
-  document.getElementById('revealMoreBtn').addEventListener('click', onRevealMore);
   document.getElementById('revealSpeakBtn').addEventListener('click', onRevealSpeak);
 
   document.getElementById('followupForm').addEventListener('submit', e => {
