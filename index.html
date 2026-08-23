@@ -1242,9 +1242,13 @@ function splitFollowups(text) {
   if (!parts.length) return { body: '', questions: [] };
   const last = parts[parts.length - 1];
   const lines = last.split('\n').map(l => l.trim()).filter(Boolean);
-  const isQuestionBlock = lines.length >= 2 && lines.every(l => /^Q:/i.test(l));
+  // Tolerant of format drift ("Q:", "Q1:", "1.", "- ", or just a bare
+  // question ending in "?") since this is model output, not a fixed
+  // wire format: a block only counts if every line in it is a question.
+  const stripPrefix = l => l.replace(/^(?:Q\s*\d*[:.)]|[-*•]|\d+[.):])\s*/i, '').trim();
+  const isQuestionBlock = lines.length >= 2 && lines.every(l => /\?\s*$/.test(l));
   if (!isQuestionBlock) return { body: parts.join('\n\n'), questions: [] };
-  const questions = lines.map(l => l.replace(/^Q:\s*/i, '').trim()).filter(Boolean);
+  const questions = lines.map(stripPrefix).filter(Boolean);
   return { body: parts.slice(0, -1).join('\n\n'), questions };
 }
 
@@ -1292,17 +1296,22 @@ function renderPassageBlock(container, text) {
   }
 }
 
+/* The ask box (typed question) only needs a narration proxy to answer
+   into, not any particular response shape, so it's shown/hidden on its
+   own — independent of whether Beau's own suggested chips parsed out
+   of this particular response. Call once a passage exists. */
+function showFollowupBox() {
+  document.getElementById('followups').hidden = !CONFIG.narrationEndpoint;
+}
+
 /* Renders up to 3 tap-to-ask chips (Beau's own suggested follow-ups for
-   this passage). Hidden entirely when there's no narration proxy to
-   answer them, or nothing was suggested. */
+   this passage). Just leaves the chip row empty if nothing was
+   suggested or didn't parse; the ask box above it stays up regardless,
+   see showFollowupBox(). */
 function renderFollowupChips(questions) {
-  const wrap = document.getElementById('followups');
   const chipsEl = document.getElementById('followupChips');
   chipsEl.innerHTML = '';
-  if (!CONFIG.narrationEndpoint || !questions || !questions.length) {
-    wrap.hidden = true;
-    return;
-  }
+  if (!CONFIG.narrationEndpoint || !questions || !questions.length) return;
   questions.slice(0, 3).forEach(q => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -1311,7 +1320,6 @@ function renderFollowupChips(questions) {
     btn.addEventListener('click', () => askFollowup(q));
     chipsEl.appendChild(btn);
   });
-  wrap.hidden = false;
 }
 
 /* Handles both a tapped chip and a typed custom question: answers it from
@@ -1481,6 +1489,7 @@ async function renderPassage(pois, persona) {
   answerEl.hidden = true;
   answerEl.innerHTML = '';
   document.getElementById('followupInput').value = '';
+  showFollowupBox();
   renderFollowupChips(questions);
 
   showReveal();
