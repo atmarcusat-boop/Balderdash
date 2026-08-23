@@ -606,7 +606,6 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-const COMPASS_WORD = { N: 'north', NE: 'northeast', E: 'east', SE: 'southeast', S: 'south', SW: 'southwest', W: 'west', NW: 'northwest' };
 
 function bearing(lat1, lon1, lat2, lon2) {
   const dLon = toRad(lon2 - lon1);
@@ -656,7 +655,7 @@ const TYPE_LABELS = { historic: 'History', architecture: 'Architecture', worship
    good enough for a decorative icon and a two-word theme line, not
    precise enough (or intended) to gate what's shown. */
 function detectPlaceType(poi) {
-  const text = `${poi.title} ${poi.hook || poi.extract || ''}`.toLowerCase();
+  const text = `${poi.title} ${poi.extract || ''}`.toLowerCase();
   if (/church|cathedral|chapel|abbey|mosque|synagogue|temple|shrine/.test(text)) return 'worship';
   if (/museum|gallery|artwork|sculpture|mural|exhibition/.test(text)) return 'art';
   if (/memorial|monument|war grave|tomb|cenotaph/.test(text)) return 'memorial';
@@ -1106,10 +1105,19 @@ async function fetchFullExtract(pageid) {
    that can turn them into persona-voiced copy, and falls back to the plain
    extract on any failure so the app never blocks on the network call.
    ========================================================================= */
-async function narrate(poi, persona, opts) {
+/* Sends every place in this stop to Beau in one call and gets back ONE
+   continuous narrative weaving them together — never per-place remarks
+   glued together client-side, which is what made this read like a
+   gazetteer. See worker/src/index.ts for the actual writing instructions. */
+async function narrateMany(pois, persona, opts) {
   opts = opts || {};
   const full = !!opts.full;
-  const text = full && poi.fullExtract ? poi.fullExtract : poi.extract;
+  const facts = pois.map(p => ({
+    title: p.title,
+    extract: (full && p.fullExtract ? p.fullExtract : p.extract) || '',
+    distanceMeters: Math.round(p.distance),
+    compass: p.compass
+  }));
 
   if (CONFIG.narrationEndpoint) {
     try {
@@ -1118,7 +1126,7 @@ async function narrate(poi, persona, opts) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           persona: persona.id === 'custom' ? { id: 'custom', description: state.customPersonaText } : { id: persona.id, name: persona.name },
-          fact: { title: poi.title, extract: text, distanceMeters: Math.round(poi.distance), compass: poi.compass },
+          facts,
           full
         })
       });
@@ -1128,7 +1136,8 @@ async function narrate(poi, persona, opts) {
       }
     } catch (e) { /* fall through to keyless passthrough */ }
   }
-  return text || 'No description available for this place yet.';
+  // Keyless / offline fallback: plain facts, no invented framing.
+  return facts.map(f => `${f.title} — ${shortFact(f.extract, full ? 320 : 130)}`).join(' ') || 'No description available for this place yet.';
 }
 
 function currentPersona() {
@@ -1230,14 +1239,17 @@ function markWorkingOverlay(on) {
 }
 
 /* =========================================================================
-   Passage — one continuous block of text, not a list. Beau mentions the
-   closest few places, woven into a single paragraph with a spatial
-   connector ahead of each real fact ("A bit further southwest: ..."),
-   read aloud as one utterance. Everything found still gets a pin on the
-   map (so the spatial picture is complete), but only the places actually
-   in the passage get a name in either the text or the audio — the rest
-   are tap-a-pin-for-its-name only. See passageFragment() and
-   CONFIG.maxAutoNarrated for the cap that keeps this short.
+   Passage — one continuous block of text, not a list. Beau is handed
+   every nearby place's real facts in a single call and writes one
+   flowing live-tour-guide narrative weaving them together — the model
+   decides how (or whether) to move between places and mention where
+   they are; nothing here glues per-place fragments together with a
+   templated connector, which is what used to make it read like a
+   gazetteer entry. Everything found still gets a pin on the map (so the
+   spatial picture is complete), but only the places actually in the
+   passage get a name in either the text or the audio — the rest are
+   tap-a-pin-for-its-name only. See CONFIG.maxAutoNarrated for the cap
+   that keeps this short.
    ========================================================================= */
 async function renderPassage(pois, persona) {
   const idleHint = document.getElementById('idleHint');
@@ -1256,13 +1268,9 @@ async function renderPassage(pois, persona) {
   const narrated = pois.slice(0, CONFIG.maxAutoNarrated);
   await Promise.all(narrated.filter(p => p.source === 'osm').map(enrichThinPoi));
 
-  for (const poi of narrated) {
-    const hook = await narrate(poi, persona, { full: false });
-    poi.hook = shortFact(hook, 115);
-  }
+  const passage = await narrateMany(narrated, persona, { full: false });
   state.passagePois = narrated;
 
-  const passage = narrated.map((poi, i) => passageFragment(poi, i)).join(' ');
   const theme = themeFor(narrated);
 
   document.getElementById('revealIcons').innerHTML = theme.icons;
@@ -1313,22 +1321,6 @@ function reopenReveal() {
   if (state.passagePois.length) showReveal();
 }
 
-function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-/* One sentence-ish fragment per place: a short spatial connector, then the
-   real fact. Never restates the name if the fact already opens with it —
-   nobody talks like "Big Ben. Big Ben is...". */
-function passageFragment(poi, i) {
-  const compassWord = COMPASS_WORD[poi.compass];
-  const connector = poi.distance < 15 ? 'Right where you are'
-    : i === 0 ? `${capitalize(compassWord)} of you`
-    : i === 1 ? `A bit further ${compassWord}`
-    : i === 2 ? `And past that, to the ${compassWord}`
-    : `Also nearby, to the ${compassWord}`;
-  const leadsWithTitle = normalizeName(poi.hook.slice(0, poi.title.length + 15)).startsWith(normalizeName(poi.title));
-  return leadsWithTitle ? `${connector}: ${poi.hook}` : `${connector}: ${poi.title} — ${poi.hook}`;
-}
-
 /* A short, complete-sounding fact — never a mid-word ellipsis trail-off.
    Prefers the first sentence if it's already short; otherwise cuts at the
    last clean clause break (comma/semicolon) or, failing that, the last
@@ -1347,8 +1339,9 @@ function shortFact(text, targetChars) {
   return (lastSpace > targetChars * 0.4 ? window.slice(0, lastSpace) : window).trim() + '.';
 }
 
-/* One combined deeper passage for every place in the current one, not a
-   fuller paragraph per place — still a block of text, just a longer one. */
+/* One combined deeper passage for every place in the current stop, written
+   as a single narrative by narrateMany — not a per-place paragraph glued
+   together with the place's name as a header. */
 async function onRevealMore() {
   const fullEl = document.getElementById('revealFull');
   const pois = state.passagePois;
@@ -1362,14 +1355,11 @@ async function onRevealMore() {
   fullEl.textContent = 'Fetching more…';
   try {
     const persona = currentPersona();
-    const fragments = [];
     for (const poi of pois) {
       if (poi.pageid && !poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid).catch(() => poi.extract);
       else if (!poi.fullExtract) poi.fullExtract = poi.extract;
-      const deeper = await narrate(poi, persona, { full: true });
-      fragments.push(`${poi.title}: ${deeper}`);
     }
-    const combined = fragments.join(' ');
+    const combined = await narrateMany(pois, persona, { full: true });
     fullEl.classList.remove('loading');
     const sourceLine = pois.map(p => {
       const label = p.pageid ? 'Wikipedia' : (p.source === 'osm+wikidata' ? 'Wikidata' : 'OpenStreetMap');
@@ -1592,7 +1582,7 @@ function logJournalEntry(coords, pois) {
     lat: Number(coords.latitude.toFixed(4)),
     lon: Number(coords.longitude.toFixed(4)),
     persona: currentPersona().name,
-    places: pois.map(p => ({ title: p.title, compass: p.compass, distanceMeters: Math.round(p.distance), hook: p.hook }))
+    places: pois.map(p => ({ title: p.title, compass: p.compass, distanceMeters: Math.round(p.distance) }))
   });
   saveJournal(entries);
 }
