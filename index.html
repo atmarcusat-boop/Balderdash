@@ -299,7 +299,10 @@ html, body {
    collapses to nothing when none of this stop's places had one. */
 .passage-images { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .passage-images:empty { display: none; margin-bottom: 0; }
-.passage-image { flex: none; width: 96px; display: block; text-decoration: none; color: inherit; }
+.passage-image {
+  flex: none; width: 96px; display: block; text-decoration: none; color: inherit;
+  background: none; border: none; padding: 0; font: inherit; cursor: pointer;
+}
 .passage-image img {
   width: 96px; height: 96px; object-fit: cover; border-radius: 14px; display: block;
   background: var(--panel-2); border: 1px solid var(--border);
@@ -391,6 +394,18 @@ html, body {
 }
 .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; color: var(--muted-2); margin: 18px 0 9px; }
 .section-label:first-of-type { margin-top: 0; }
+
+/* ============ Article modal (Beau's own write-up of a single place) ============ */
+.article-hero {
+  width: 100%; max-height: 220px; object-fit: cover; border-radius: 14px;
+  margin-bottom: 14px; display: block; background: var(--panel-2);
+}
+#articleBody {
+  font-size: 15.5px; line-height: 1.6; color: var(--paper);
+  font-family: var(--font-display); font-weight: 500; margin-top: 4px;
+}
+#articleBody .passage-para { margin-bottom: 14px; }
+#articleBody .article-loading { color: var(--muted); font-style: italic; margin: 0; }
 
 .persona-list { display: flex; flex-direction: column; gap: 8px; }
 .persona-opt {
@@ -512,6 +527,17 @@ html, body {
       </form>
     </div>
     <div class="followup-answer" id="followupAnswer" hidden></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="articleBackdrop">
+  <div class="modal">
+    <button class="modal-close" id="articleClose">✕</button>
+    <img class="article-hero" id="articleHero" alt="" hidden>
+    <h2 id="articleTitle"></h2>
+    <div class="sub" id="articleMeta"></div>
+    <div id="articleBody"></div>
+    <span class="poi-source" id="articleSource"></span>
   </div>
 </div>
 
@@ -1324,9 +1350,9 @@ function renderPassageBlock(container, text) {
 function renderPassageImages(container, pois) {
   container.innerHTML = '';
   pois.filter(p => p.image).forEach(p => {
-    const fig = document.createElement(p.url ? 'a' : 'div');
+    const fig = document.createElement('button');
+    fig.type = 'button';
     fig.className = 'passage-image';
-    if (p.url) { fig.href = p.url; fig.target = '_blank'; fig.rel = 'noopener'; }
     const img = document.createElement('img');
     img.src = p.image;
     img.alt = p.title;
@@ -1337,6 +1363,7 @@ function renderPassageImages(container, pois) {
     cap.textContent = p.title;
     fig.appendChild(img);
     fig.appendChild(cap);
+    fig.addEventListener('click', () => openArticle(p));
     container.appendChild(fig);
   });
 }
@@ -1717,6 +1744,60 @@ function setupReveal() {
 }
 
 /* =========================================================================
+   Article modal — Beau's own fuller write-up of a single place, opened by
+   tapping its photo. Written from a fuller real extract when one exists
+   (fetchFullExtract), same truth/charm rule as everywhere else: only the
+   real retrieved text, Beau just narrates it in his own words.
+   ========================================================================= */
+async function fetchFullExtract(pageid) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    pageids: String(pageid),
+    prop: 'extracts', explaintext: '1', exchars: '2000'
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) throw new Error('Wikipedia request failed');
+  const data = await res.json();
+  const page = data.query && data.query.pages && Object.values(data.query.pages)[0];
+  return page ? (page.extract || '').trim() : '';
+}
+
+async function openArticle(poi) {
+  const backdrop = document.getElementById('articleBackdrop');
+  const hero = document.getElementById('articleHero');
+  const body = document.getElementById('articleBody');
+  const sourceEl = document.getElementById('articleSource');
+
+  document.getElementById('articleTitle').textContent = poi.title;
+  document.getElementById('articleMeta').textContent = `${Math.round(poi.distance)}m to the ${poi.compass}`;
+  if (poi.image) { hero.src = poi.image; hero.alt = poi.title; hero.hidden = false; }
+  else { hero.hidden = true; }
+  body.innerHTML = '<p class="article-loading">Beau is writing this one up…</p>';
+  sourceEl.innerHTML = '';
+  backdrop.classList.add('open');
+
+  try {
+    if (poi.pageid && !poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid).catch(() => poi.extract);
+    else if (!poi.fullExtract) poi.fullExtract = poi.extract;
+
+    const persona = currentPersona();
+    const raw = await narrateMany([poi], persona, { full: true });
+    const { body: article } = splitFollowups(raw);
+    renderPassageBlock(body, article);
+    const label = poi.pageid ? 'Wikipedia' : (poi.source && poi.source.includes('wikidata') ? 'Wikidata' : 'OpenStreetMap');
+    sourceEl.innerHTML = `Source: <a href="${poi.url}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
+  } catch (err) {
+    body.innerHTML = '<p class="article-loading">Couldn’t write this one up right now.</p>';
+  }
+}
+
+function setupArticleModal() {
+  const backdrop = document.getElementById('articleBackdrop');
+  document.getElementById('articleClose').addEventListener('click', () => backdrop.classList.remove('open'));
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.classList.remove('open'); });
+}
+
+/* =========================================================================
    Settings modal
    ========================================================================= */
 function renderPersonaList() {
@@ -1879,6 +1960,7 @@ function init() {
   setMode('idle');
   setupMainButton();
   setupReveal();
+  setupArticleModal();
   setupSettingsModal();
   setupJournalModal();
   document.getElementById('revealSpeakBtn').innerHTML = ICONS.speaker;
