@@ -57,7 +57,7 @@ html, body {
 #map {
   position: absolute;
   inset: 0;
-  z-index: 0; /* contains Leaflet's internal panes (markerPane etc. run up to z-index 700) so Beau never floats above the topbar/sheet */
+  z-index: 0; /* contains Leaflet's internal panes (markerPane etc. run up to z-index 700) so Beau never floats above the topbar/reveal */
   background: var(--ink-2);
 }
 .leaflet-control-attribution {
@@ -206,45 +206,58 @@ html, body {
 }
 .status-line.err { color: var(--err-light); border-color: rgba(248,113,113,0.35); }
 
-/* ============ Bottom sheet ============ */
-.sheet {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
+.idle-hint {
+  pointer-events: auto;
+  color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center;
+  max-width: 78vw; margin: 2px auto 0;
+}
+.idle-hint strong { color: var(--paper); }
+
+/* ============ Reveal — Beau opening up ============ */
+.reveal-backdrop {
+  position: fixed; inset: 0; z-index: 960;
+  display: none; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(4, 4, 8, 0);
+  transition: background 0.35s ease;
+}
+.reveal-backdrop.open { display: flex; }
+.reveal-backdrop.visible { background: rgba(4, 4, 8, 0.72); }
+
+.reveal-panel {
+  width: min(94vw, 460px);
+  max-height: 82vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--panel);
-  border-top: 1px solid var(--border);
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -8px 30px var(--shadow);
-  z-index: 520;
-  display: flex; flex-direction: column;
-  transform: translateY(calc(100% - 84px));
-  transition: transform 0.32s cubic-bezier(.2,.8,.2,1);
-  max-height: 86vh;
-  padding-bottom: var(--safe-bottom);
-  touch-action: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 26px;
+  padding: 26px 24px calc(24px + var(--safe-bottom));
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+  transform: scale(0.04);
+  opacity: 0;
+  transition: transform 0.5s cubic-bezier(.16,1,.3,1), opacity 0.32s ease;
 }
-.sheet.peek { transform: translateY(calc(100% - 84px)); }
-.sheet.expanded { transform: translateY(0); }
-.sheet.hidden-sheet { transform: translateY(100%); }
-.sheet-handle-area { padding: 10px 16px 6px; cursor: grab; }
-.sheet-handle { width: 36px; height: 4px; border-radius: 4px; background: var(--border-strong); margin: 0 auto 10px; }
-.sheet-header { display: flex; align-items: baseline; justify-content: space-between; padding: 0 18px 10px; }
-.sheet-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--paper); }
-.sheet-count { font-size: 12px; color: var(--muted-2); }
-.sheet-body { overflow-y: auto; padding: 0 14px 18px; flex: 1; -webkit-overflow-scrolling: touch; }
+.reveal-panel.shown { transform: scale(1); opacity: 1; }
 
-.empty-hint { color: var(--muted); font-size: 13px; padding: 6px 8px 20px; line-height: 1.5; }
-
-/* ============ POI cards ============ */
-.beau-passage {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px 16px 14px;
+.reveal-close {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer;
+  width: 30px; height: 30px;
 }
-.passage-text { font-size: 14.5px; line-height: 1.65; color: #d4d6e2; }
-.passage-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.reveal-icons { display: flex; justify-content: center; gap: 12px; margin-bottom: 12px; }
+.reveal-icons svg { width: 26px; height: 26px; color: var(--accent-light); display: block; }
+.reveal-summary {
+  text-align: center; font-family: var(--font-display); font-weight: 600;
+  font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); margin-bottom: 16px;
+}
+.reveal-text { font-size: 21px; line-height: 1.5; color: var(--paper); font-family: var(--font-display); font-weight: 500; }
+
+/* ============ Passage actions / deeper detail (shared: reveal panel + settings-style bits) ============ */
+.passage-actions { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
 .tell-more-btn {
-  background: none; border: none; color: var(--accent-light); font-size: 12.5px; font-weight: 600;
+  background: none; border: none; color: var(--accent-light); font-size: 13px; font-weight: 600;
   cursor: pointer; padding: 4px 0;
 }
 .speak-btn {
@@ -252,14 +265,14 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   transition: color 0.15s ease;
 }
-.speak-btn svg { width: 16px; height: 16px; display: block; }
+.speak-btn svg { width: 17px; height: 17px; display: block; }
 .speak-btn:hover { color: var(--paper); }
 .poi-full {
-  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
-  font-size: 13.5px; line-height: 1.6; color: var(--muted);
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+  font-size: 15px; line-height: 1.6; color: var(--muted);
 }
 .poi-full.loading { font-style: italic; }
-.poi-source { display: block; margin-top: 8px; font-size: 11px; color: var(--muted-2); }
+.poi-source { display: block; margin-top: 10px; font-size: 11px; color: var(--muted-2); }
 .poi-source a { color: var(--accent-light); }
 
 /* ============ Modals (settings / journal) ============ */
@@ -376,29 +389,23 @@ html, body {
       </button>
     </div>
     <div class="status-line" id="statusLine">Tap for a lookup · hold to follow you</div>
+    <div class="idle-hint" id="idleHint">Press <strong id="idleHintBtnName">Beau</strong> and I'll tell you what I notice — real places, close by, in the order you'll reach them.</div>
   </div>
 
   <div class="toast-wrap" id="toastWrap"></div>
+</div>
 
-  <div class="sheet peek" id="sheet">
-    <div class="sheet-handle-area" id="sheetHandle">
-      <div class="sheet-handle"></div>
-      <div class="sheet-header">
-        <span class="sheet-title" id="sheetTitle">Nearby</span>
-        <span class="sheet-count" id="sheetCount"></span>
-      </div>
+<div class="reveal-backdrop" id="revealBackdrop">
+  <div class="reveal-panel" id="revealPanel">
+    <button class="reveal-close" id="revealClose">✕</button>
+    <div class="reveal-icons" id="revealIcons"></div>
+    <div class="reveal-summary" id="revealSummary"></div>
+    <p class="reveal-text" id="revealText"></p>
+    <div class="passage-actions">
+      <button class="tell-more-btn" id="revealMoreBtn">Tell me more</button>
+      <button class="speak-btn" id="revealSpeakBtn" title="Read this aloud"></button>
     </div>
-    <div class="sheet-body" id="sheetBody">
-      <div class="empty-hint" id="emptyHint">Press <strong id="emptyHintBtnName">Beau</strong> and I'll tell you what I notice — real places, close by, in the order you'll reach them.</div>
-      <div class="beau-passage" id="beauPassage" hidden>
-        <p class="passage-text" id="passageText"></p>
-        <div class="passage-actions">
-          <button class="tell-more-btn" id="passageMoreBtn">Tell me more</button>
-          <button class="speak-btn" id="passageSpeakBtn" title="Read this aloud"></button>
-        </div>
-        <div class="poi-full" id="passageFull" hidden></div>
-      </div>
-    </div>
+    <div class="poi-full" id="revealFull" hidden></div>
   </div>
 </div>
 
@@ -528,7 +535,6 @@ const state = {
   personaId: loadSetting('personaId', CONFIG.defaultPersonaId),
   customPersonaText: loadSetting('customPersonaText', ''),
   voiceOn: loadSetting('voiceOn', true) !== false,
-  sheetState: 'peek', // peek | expanded | hidden-sheet
   markers: new Map(),
   speechQueueId: 0
 };
@@ -593,6 +599,41 @@ const ICONS = {
   speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 010 7"/><path d="M19 6a9 9 0 010 12"/></svg>'
 };
 
+/* Small decorative type glyphs for the reveal header — purely presentational
+   (picked fresh per lookup from the passage's own text), not a stored
+   category system: nothing here filters or classifies what gets shown. */
+const TYPE_ICONS = {
+  historic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v11M9 10v11M15 10v11M19 10v11"/><path d="M3 21h18"/></svg>',
+  architecture: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="1"/><path d="M10 21v-4h4v4"/><path d="M10 7h.01M14 7h.01M10 11h.01M14 11h.01"/></svg>',
+  worship: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M10.5 3.5h3"/><path d="M7 21V11l5-5 5 5v10"/><path d="M5 21h14"/></svg>',
+  art: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="1"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5-4 4-3-3-6 6"/></svg>',
+  memorial: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.5 6.5h-7L12 2z"/><path d="M8.5 8.5h7L14 21h-4L8.5 8.5z"/></svg>',
+  nature: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21c8 0 14-6 14-14V4h-3C8 4 5 10 5 18v3z"/><path d="M5 21c3-6 6-9 12-13"/></svg>'
+};
+const TYPE_LABELS = { historic: 'History', architecture: 'Architecture', worship: 'Sacred spaces', art: 'Art', memorial: 'Memorials', nature: 'Green space' };
+
+/* Guesses a display type from the place's own name/description text —
+   good enough for a decorative icon and a two-word theme line, not
+   precise enough (or intended) to gate what's shown. */
+function detectPlaceType(poi) {
+  const text = `${poi.title} ${poi.hook || poi.extract || ''}`.toLowerCase();
+  if (/church|cathedral|chapel|abbey|mosque|synagogue|temple|shrine/.test(text)) return 'worship';
+  if (/museum|gallery|artwork|sculpture|mural|exhibition/.test(text)) return 'art';
+  if (/memorial|monument|war grave|tomb|cenotaph/.test(text)) return 'memorial';
+  if (/park|garden|green\b|common\b|meadow/.test(text)) return 'nature';
+  if (/tower|castle|palace|bridge|hall\b|building|manor|house\b/.test(text)) return 'architecture';
+  return 'historic';
+}
+function themeFor(pois) {
+  const types = pois.map(detectPlaceType);
+  const counts = {};
+  types.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+  const ranked = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  const icons = ranked.map(t => TYPE_ICONS[t]).join('');
+  const summary = ranked.slice(0, 2).map(t => TYPE_LABELS[t]).join(' & ') || 'Nearby';
+  return { icons, summary };
+}
+
 /* =========================================================================
    Map
    ========================================================================= */
@@ -646,7 +687,7 @@ function renderMarkers(pois, featuredIds) {
     const marker = L.marker([poi.lat, poi.lon], {
       icon: L.divIcon({ className: '', html: `<div class="poi-pin${featured ? ' featured' : ''}"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] })
     }).addTo(map);
-    if (featured) marker.on('click', () => setSheetState('expanded'));
+    if (featured) marker.on('click', reopenReveal);
     else marker.bindPopup(escapeHtml(poi.title));
     state.markers.set(poi.id, marker);
   });
@@ -1133,12 +1174,11 @@ async function runLookup(coords, opts) {
   await renderPassage(shown, persona);
 
   if (shown.length) {
-    setSheetState('expanded');
     logJournalEntry(coords, state.passagePois);
   } else {
-    document.getElementById('emptyHint').hidden = false;
-    document.getElementById('emptyHint').textContent = `I’ve got nothing within ${usedRadius}m. Move a little, or widen how far I look, in Settings.`;
-    setSheetState('peek');
+    const idleHint = document.getElementById('idleHint');
+    idleHint.hidden = false;
+    idleHint.textContent = `I’ve got nothing within ${usedRadius}m. Move a little, or widen how far I look, in Settings.`;
   }
 
   if (opts.live) markWorkingOverlay(false);
@@ -1160,20 +1200,16 @@ function markWorkingOverlay(on) {
    CONFIG.maxAutoNarrated for the cap that keeps this short.
    ========================================================================= */
 async function renderPassage(pois, persona) {
-  const emptyHint = document.getElementById('emptyHint');
-  const passageEl = document.getElementById('beauPassage');
-  const textEl = document.getElementById('passageText');
-  const fullEl = document.getElementById('passageFull');
-
-  emptyHint.hidden = pois.length > 0;
-  passageEl.hidden = pois.length === 0;
-  fullEl.hidden = true;
-  fullEl.dataset.loaded = '';
-  document.getElementById('sheetCount').textContent = pois.length ? pois.length + (pois.length === 1 ? ' place' : ' places') : '';
+  const idleHint = document.getElementById('idleHint');
 
   cancelSpeech();
   state.passagePois = [];
-  if (!pois.length) return;
+
+  if (!pois.length) {
+    idleHint.hidden = false;
+    return;
+  }
+  idleHint.hidden = true;
 
   // Chase down real stories for thin OSM points before writing anything —
   // in parallel, so it costs wall-clock time once, not once per place.
@@ -1187,9 +1223,54 @@ async function renderPassage(pois, persona) {
   state.passagePois = narrated;
 
   const passage = narrated.map((poi, i) => passageFragment(poi, i)).join(' ');
-  textEl.textContent = passage;
+  const theme = themeFor(narrated);
 
+  document.getElementById('revealIcons').innerHTML = theme.icons;
+  document.getElementById('revealSummary').textContent = theme.summary;
+  document.getElementById('revealText').textContent = passage;
+  document.getElementById('revealFull').hidden = true;
+  document.getElementById('revealFull').dataset.loaded = '';
+
+  showReveal();
   if (state.voiceOn) speak(passage, persona);
+}
+
+/* The reveal blooms open from wherever Beau currently sits on screen —
+   fixed control column pre-fix, a real map marker after — by measuring
+   his position and the panel's natural (untransformed) size, then
+   setting transform-origin to that exact point before animating in. */
+function showReveal() {
+  const backdrop = document.getElementById('revealBackdrop');
+  const panel = document.getElementById('revealPanel');
+  const beauWrap = document.getElementById('mainBtnWrap');
+
+  backdrop.classList.remove('visible');
+  panel.classList.remove('shown');
+  backdrop.classList.add('open');
+
+  panel.style.transition = 'none';
+  panel.style.transform = 'scale(1)';
+  const beauRect = beauWrap.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  const originX = panelRect.width ? ((beauRect.left + beauRect.width / 2 - panelRect.left) / panelRect.width) * 100 : 50;
+  const originY = panelRect.height ? ((beauRect.top + beauRect.height / 2 - panelRect.top) / panelRect.height) * 100 : 50;
+  panel.style.transformOrigin = `${originX}% ${originY}%`;
+  panel.style.transform = '';
+  void panel.offsetWidth; // force reflow so the reset registers before re-enabling the transition
+  panel.style.transition = '';
+
+  requestAnimationFrame(() => {
+    backdrop.classList.add('visible');
+    panel.classList.add('shown');
+  });
+}
+function hideReveal() {
+  document.getElementById('revealBackdrop').classList.remove('visible');
+  document.getElementById('revealPanel').classList.remove('shown');
+  setTimeout(() => document.getElementById('revealBackdrop').classList.remove('open'), 500);
+}
+function reopenReveal() {
+  if (state.passagePois.length) showReveal();
 }
 
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -1228,8 +1309,8 @@ function shortFact(text, targetChars) {
 
 /* One combined deeper passage for every place in the current one, not a
    fuller paragraph per place — still a block of text, just a longer one. */
-async function onPassageMore() {
-  const fullEl = document.getElementById('passageFull');
+async function onRevealMore() {
+  const fullEl = document.getElementById('revealFull');
   const pois = state.passagePois;
   if (!pois.length) return;
 
@@ -1263,9 +1344,9 @@ async function onPassageMore() {
   }
 }
 
-function onPassageSpeak() {
-  const fullEl = document.getElementById('passageFull');
-  const textEl = document.getElementById('passageText');
+function onRevealSpeak() {
+  const fullEl = document.getElementById('revealFull');
+  const textEl = document.getElementById('revealText');
   cancelSpeech();
   const persona = currentPersona();
   const spoken = (!fullEl.hidden && fullEl.dataset.loaded === '1') ? fullEl.querySelector('p').textContent : textEl.textContent;
@@ -1354,26 +1435,12 @@ function setupMainButton() {
 /* =========================================================================
    Sheet
    ========================================================================= */
-function setSheetState(s) {
-  state.sheetState = s;
-  const sheet = document.getElementById('sheet');
-  sheet.classList.remove('peek', 'expanded', 'hidden-sheet');
-  sheet.classList.add(s);
-}
-function setupSheet() {
-  const handle = document.getElementById('sheetHandle');
-  handle.addEventListener('click', () => {
-    setSheetState(state.sheetState === 'expanded' ? 'peek' : 'expanded');
-  });
-  let startY = null;
-  handle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
-  handle.addEventListener('touchend', e => {
-    if (startY == null) return;
-    const dy = e.changedTouches[0].clientY - startY;
-    if (dy < -30) setSheetState('expanded');
-    else if (dy > 30) setSheetState('peek');
-    startY = null;
-  }, { passive: true });
+function setupReveal() {
+  const backdrop = document.getElementById('revealBackdrop');
+  document.getElementById('revealClose').addEventListener('click', hideReveal);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) hideReveal(); });
+  document.getElementById('revealMoreBtn').addEventListener('click', onRevealMore);
+  document.getElementById('revealSpeakBtn').addEventListener('click', onRevealSpeak);
 }
 
 /* =========================================================================
@@ -1466,7 +1533,7 @@ function setupSettingsModal() {
 function applyNaming() {
   document.getElementById('brandMark').textContent = CONFIG.appName;
   document.title = CONFIG.appName + ' — a presence that walks with you';
-  document.getElementById('emptyHintBtnName').textContent = CONFIG.buttonName;
+  document.getElementById('idleHintBtnName').textContent = CONFIG.buttonName;
 }
 
 /* =========================================================================
@@ -1538,12 +1605,10 @@ function init() {
   applyNaming();
   setMode('idle');
   setupMainButton();
-  setupSheet();
+  setupReveal();
   setupSettingsModal();
   setupJournalModal();
-  document.getElementById('passageSpeakBtn').innerHTML = ICONS.speaker;
-  document.getElementById('passageMoreBtn').addEventListener('click', onPassageMore);
-  document.getElementById('passageSpeakBtn').addEventListener('click', onPassageSpeak);
+  document.getElementById('revealSpeakBtn').innerHTML = ICONS.speaker;
   document.getElementById('mainBtnLabel').textContent = CONFIG.buttonName;
   greetOnFirstVisit();
 }
