@@ -294,6 +294,21 @@ html, body {
 }
 .reveal-text { font-size: 21px; line-height: 1.5; color: var(--paper); font-family: var(--font-display); font-weight: 500; }
 
+/* Real photos of the actual places, straight from Wikipedia's own
+   pageimages thumbnail for that article — never generated. Empty and
+   collapses to nothing when none of this stop's places had one. */
+.passage-images { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.passage-images:empty { display: none; margin-bottom: 0; }
+.passage-image { flex: none; width: 96px; }
+.passage-image img {
+  width: 96px; height: 96px; object-fit: cover; border-radius: 14px; display: block;
+  background: var(--panel-2); border: 1px solid var(--border);
+}
+.passage-image span {
+  display: block; margin-top: 5px; font-size: 10.5px; color: var(--muted-2);
+  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
 /* Each narrated paragraph gets a small icon guessed from its own content,
    real spacing between paragraphs, and, when the model closes with a
    "NEXT:" line, a visually distinct "what to do now" row at the end. */
@@ -488,6 +503,7 @@ html, body {
     <button class="reveal-close" id="revealClose">✕</button>
     <div class="reveal-icons" id="revealIcons"></div>
     <div class="reveal-summary" id="revealSummary"></div>
+    <div class="passage-images" id="revealImages"></div>
     <div class="reveal-text" id="revealText"></div>
     <div class="passage-actions">
       <button class="tell-more-btn" id="revealMoreBtn">Tell me more</button>
@@ -596,6 +612,7 @@ const CONFIG = {
   overpassApi: 'https://overpass-api.de/api/interpreter', // OpenStreetMap enrichment — free, no key, fills gaps Wikipedia doesn't cover
   wikidataApi: 'https://www.wikidata.org/w/api.php',       // structured facts for things without a full Wikipedia article
   wikidataEntityData: 'https://www.wikidata.org/wiki/Special:EntityData',
+  wikiThumbSize: 400, // px, requested from Wikipedia's own pageimages thumbnail — real photos, never generated
 
   // Beau is the app's real, default voice — not a costume like the others.
   // He has no face; he's a presence you feel through the pulse and hear
@@ -857,8 +874,9 @@ async function fetchWikipediaNearby(lat, lon, radius) {
     ggsradius: String(radius),
     ggslimit: String(CONFIG.maxResultsFetched),
     ggsnamespace: '0',
-    prop: 'extracts|coordinates',
+    prop: 'extracts|coordinates|pageimages',
     exintro: '1', explaintext: '1', exchars: '420', exlimit: 'max',
+    piprop: 'thumbnail', pithumbsize: String(CONFIG.wikiThumbSize),
     colimit: 'max'
   });
   const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
@@ -872,6 +890,7 @@ async function fetchWikipediaNearby(lat, lon, radius) {
       pageid: p.pageid,
       title: p.title,
       extract: (p.extract || '').trim(),
+      image: p.thumbnail ? p.thumbnail.source : null,
       lat: p.coordinates[0].lat,
       lon: p.coordinates[0].lon,
       url: 'https://en.wikipedia.org/?curid=' + p.pageid,
@@ -996,7 +1015,8 @@ async function fetchWikipediaExtractsByTitle(titles) {
   const params = new URLSearchParams({
     action: 'query', format: 'json', origin: '*',
     titles: titles.join('|'), redirects: '1',
-    prop: 'extracts', exintro: '1', explaintext: '1', exchars: '420', exlimit: 'max'
+    prop: 'extracts|pageimages', exintro: '1', explaintext: '1', exchars: '420', exlimit: 'max',
+    piprop: 'thumbnail', pithumbsize: String(CONFIG.wikiThumbSize)
   });
   const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
   if (!res.ok) return {};
@@ -1008,7 +1028,7 @@ async function fetchWikipediaExtractsByTitle(titles) {
   (data.query.redirects || []).forEach(r => { for (const k in chain) if (chain[k] === r.from) chain[k] = r.to; });
   const pagesByTitle = {};
   Object.values(data.query.pages || {}).forEach(p => {
-    if (p.extract) pagesByTitle[p.title] = { extract: p.extract.trim(), pageid: p.pageid, url: 'https://en.wikipedia.org/?curid=' + p.pageid };
+    if (p.extract) pagesByTitle[p.title] = { extract: p.extract.trim(), pageid: p.pageid, image: p.thumbnail ? p.thumbnail.source : null, url: 'https://en.wikipedia.org/?curid=' + p.pageid };
   });
   const out = {};
   titles.forEach(t => { const hit = pagesByTitle[chain[t]]; if (hit) out[t] = hit; });
@@ -1037,7 +1057,7 @@ async function fetchAllNearby(lat, lon, radius) {
     const extracts = await fetchWikipediaExtractsByTitle([...new Set(titlesNeeded)]).catch(() => ({}));
     osmUnique.forEach(o => {
       const hit = o._wikiTitle && extracts[o._wikiTitle];
-      if (hit) { o.extract = hit.extract; o.pageid = hit.pageid; o.url = hit.url; o.source = 'osm+wikipedia'; }
+      if (hit) { o.extract = hit.extract; o.pageid = hit.pageid; o.image = hit.image; o.url = hit.url; o.source = 'osm+wikipedia'; }
     });
   }
 
@@ -1102,14 +1122,15 @@ async function searchWikipediaByName(name) {
   const params = new URLSearchParams({
     action: 'query', format: 'json', origin: '*',
     generator: 'search', gsrsearch: name, gsrlimit: '1', gsrnamespace: '0',
-    prop: 'extracts', exintro: '1', explaintext: '1', exchars: '500', exlimit: 'max'
+    prop: 'extracts|pageimages', exintro: '1', explaintext: '1', exchars: '500', exlimit: 'max',
+    piprop: 'thumbnail', pithumbsize: String(CONFIG.wikiThumbSize)
   });
   const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
   if (!res.ok) return null;
   const data = await res.json();
   const page = (data.query && data.query.pages) ? Object.values(data.query.pages)[0] : null;
   if (!page || !page.extract || !namesLikelyMatch(name, page.title)) return null;
-  return { pageid: page.pageid, extract: page.extract.trim(), url: 'https://en.wikipedia.org/?curid=' + page.pageid };
+  return { pageid: page.pageid, extract: page.extract.trim(), image: page.thumbnail ? page.thumbnail.source : null, url: 'https://en.wikipedia.org/?curid=' + page.pageid };
 }
 
 async function applyWikidataEnrichment(poi, qid) {
@@ -1118,7 +1139,7 @@ async function applyWikidataEnrichment(poi, qid) {
   if (entity.enwikiTitle) {
     const extracts = await fetchWikipediaExtractsByTitle([entity.enwikiTitle]).catch(() => ({}));
     const hit = extracts[entity.enwikiTitle];
-    if (hit) { poi.pageid = hit.pageid; poi.extract = hit.extract; poi.url = hit.url; poi.source = 'osm+wikidata+wikipedia'; return; }
+    if (hit) { poi.pageid = hit.pageid; poi.extract = hit.extract; poi.image = hit.image; poi.url = hit.url; poi.source = 'osm+wikidata+wikipedia'; return; }
   }
   if (entity.description) {
     poi.extract = entity.year ? `${poi.title} — ${entity.description}, since ${entity.year}.` : `${poi.title} — ${entity.description}.`;
@@ -1141,7 +1162,7 @@ async function enrichThinPoi(poi) {
       if (poi.source !== 'osm') return;
     }
     const hit = await searchWikipediaByName(poi.title).catch(() => null);
-    if (hit) { poi.pageid = hit.pageid; poi.extract = hit.extract; poi.url = hit.url; poi.source = 'osm+wikipedia-search'; }
+    if (hit) { poi.pageid = hit.pageid; poi.extract = hit.extract; poi.image = hit.image; poi.url = hit.url; poi.source = 'osm+wikipedia-search'; }
   } catch (e) { /* keep the existing tour-guide-phrased fallback */ }
 }
 
@@ -1294,6 +1315,29 @@ function renderPassageBlock(container, text) {
     row.innerHTML = `<span class="para-icon">${TYPE_ICONS.direction}</span><p>${escapeHtml(nextLine)}</p>`;
     container.appendChild(row);
   }
+}
+
+/* Real photos, one per narrated place that actually had a Wikipedia
+   thumbnail (fetched alongside its extract, never a separate lookup and
+   never generated). Places without one just don't get a thumbnail; the
+   row collapses to nothing if none of them did. */
+function renderPassageImages(container, pois) {
+  container.innerHTML = '';
+  pois.filter(p => p.image).forEach(p => {
+    const fig = document.createElement('div');
+    fig.className = 'passage-image';
+    const img = document.createElement('img');
+    img.src = p.image;
+    img.alt = p.title;
+    img.loading = 'lazy';
+    img.referrerPolicy = 'no-referrer';
+    img.onerror = () => fig.remove();
+    const cap = document.createElement('span');
+    cap.textContent = p.title;
+    fig.appendChild(img);
+    fig.appendChild(cap);
+    container.appendChild(fig);
+  });
 }
 
 /* The ask box (typed question) only needs a narration proxy to answer
@@ -1479,6 +1523,7 @@ async function renderPassage(pois, persona) {
 
   document.getElementById('revealIcons').innerHTML = theme.icons;
   document.getElementById('revealSummary').textContent = theme.summary;
+  renderPassageImages(document.getElementById('revealImages'), narrated);
   const textEl = document.getElementById('revealText');
   renderPassageBlock(textEl, passage);
   textEl.dataset.spoken = speechTextFrom(passage);
