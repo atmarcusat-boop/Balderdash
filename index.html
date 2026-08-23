@@ -2,1332 +2,2135 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Balderdash</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Beau — a presence that walks with you</title>
+<meta name="description" content="Beau has no face — just a pulse and a voice. He notices real, nearby places and tells you about them as you walk.">
+<meta name="theme-color" content="#0a0a12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%230a0a12'/%3E%3Ccircle cx='50' cy='50' r='22' fill='none' stroke='%237c6fee' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='7' fill='%237c6fee'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
-/* ---- Reset & Base ---- */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ============ Reset & tokens ============ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 :root {
-  --ink:       #1a1208;
-  --paper:     #f0e8d4;
-  --paper-dark:#e0d4b8;
-  --paper-aged:#c8b896;
-  --wood:      #2c1a0e;
-  --wood-mid:  #4a2c14;
-  --wood-light:#6b3f20;
-  --gold:      #b8872a;
-  --gold-light:#d4a43c;
-  --crimson:   #7a1f1f;
-  --shadow:    rgba(0,0,0,0.6);
-  --shadow-sm: rgba(0,0,0,0.3);
-  --font-display: 'Playfair Display', 'Georgia', serif;
-  --font-body:    'IM Fell English', 'Georgia', serif;
+  --ink:          #0a0a12;
+  --ink-2:        #101018;
+  --panel:        #14141f;
+  --panel-2:      #1a1a27;
+  --paper:        #eef0f6;
+  --accent:       #7c6fee;
+  --accent-light: #a99bff;
+  --accent-dim:   #5b4fc4;
+  --live:         #22d3ee;
+  --live-light:   #67e8f9;
+  --ok:           #34d399;
+  --err:          #f87171;
+  --err-light:    #fca5a5;
+  --muted:        #9296ac;
+  --muted-2:      #63667c;
+  --shadow:       rgba(0, 0, 0, 0.5);
+  --border:       rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --font-display: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html, body {
   height: 100%;
-  background: var(--wood);
-  color: var(--ink);
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--paper);
   font-family: var(--font-body);
-  font-size: 16px;
-  line-height: 1.5;
-  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-body {
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 48px,
-      rgba(0,0,0,0.04) 48px,
-      rgba(0,0,0,0.04) 50px
-    ),
-    repeating-linear-gradient(
-      180deg,
-      transparent,
-      transparent 48px,
-      rgba(0,0,0,0.04) 48px,
-      rgba(0,0,0,0.04) 50px
-    );
-}
+#app { position: fixed; inset: 0; overflow: hidden; }
 
-/* ---- Screens ---- */
-.screen {
-  display: none;
-  min-height: 100vh;
-  padding: 1.5rem;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-}
-.screen.active { display: flex; }
-
-/* ---- Paper card ---- */
-.card {
-  background: var(--paper);
-  border: 2px solid var(--paper-aged);
-  box-shadow:
-    0 2px 0 var(--paper-aged),
-    0 4px 0 rgba(0,0,0,0.2),
-    0 8px 24px var(--shadow),
-    inset 0 1px 0 rgba(255,255,255,0.4);
-  padding: 2rem 2.5rem;
-  width: 100%;
-  max-width: 600px;
-  position: relative;
-}
-
-.card::before {
-  content: '';
+/* ============ Map ============ */
+#map {
   position: absolute;
-  inset: 6px;
-  border: 1px solid rgba(0,0,0,0.08);
+  inset: 0;
+  z-index: 0; /* contains Leaflet's internal panes (markerPane etc. run up to z-index 700) so Beau never floats above the topbar/reveal */
+  background: var(--ink-2);
+}
+.leaflet-control-attribution {
+  background: rgba(10, 10, 18, 0.72) !important;
+  color: var(--muted) !important;
+  font-size: 10px !important;
+  backdrop-filter: blur(2px);
+}
+.leaflet-control-attribution a { color: var(--accent-light) !important; }
+.leaflet-control-zoom { display: none; }
+
+.poi-pin {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--panel-2);
+  border: 2px solid var(--muted-2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.poi-pin.featured {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border: 2px solid var(--accent-light);
+  box-shadow: 0 0 0 4px rgba(124,111,238,0.22), 0 2px 8px rgba(0,0,0,0.5);
+}
+
+/* ============ Top bar ============ */
+.topbar {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: calc(var(--safe-top) + 12px) 14px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  pointer-events: none;
+  z-index: 500;
+}
+.brand {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(15,15,23,0.7);
+  backdrop-filter: blur(10px);
+  padding: 9px 16px 9px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  pointer-events: auto;
+}
+.brand-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px 1px rgba(124,111,238,0.75);
+  animation: dot-pulse 2.6s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+@keyframes dot-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+.brand-mark { font-family: var(--font-display); font-weight: 600; font-size: 15.5px; color: var(--paper); letter-spacing: -0.01em; }
+
+.icon-btn-row { display: flex; gap: 8px; pointer-events: auto; }
+.icon-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(15,15,23,0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.icon-btn svg { width: 17px; height: 17px; display: block; }
+.icon-btn:active { transform: scale(0.92); }
+.icon-btn:hover { color: var(--paper); border-color: var(--border-strong); }
+
+/* ============ Center control column ============ */
+.control-col {
+  position: absolute;
+  top: calc(var(--safe-top) + 68px);
+  left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px;
+  z-index: 480;
   pointer-events: none;
 }
 
-/* ---- Typography ---- */
-h1 {
-  font-family: var(--font-display);
-  font-size: clamp(2.8rem, 8vw, 5rem);
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  color: var(--paper);
-  text-shadow:
-    2px 2px 0 var(--wood),
-    -1px -1px 0 rgba(0,0,0,0.5),
-    0 0 40px rgba(184,135,42,0.3);
-  text-align: center;
-  line-height: 1;
-}
-
-h1 span {
-  color: var(--gold-light);
-}
-
-h2 {
-  font-family: var(--font-display);
-  font-size: clamp(1.4rem, 4vw, 2rem);
-  font-weight: 700;
-  color: var(--wood);
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
-h3 {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--wood-mid);
-  margin-bottom: 0.5rem;
-}
-
-.subtitle {
-  font-family: var(--font-body);
-  font-style: italic;
-  color: var(--paper);
-  text-align: center;
-  opacity: 0.75;
-  font-size: 1rem;
-  margin-bottom: 2.5rem;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-}
-
-.label {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--wood-mid);
-  margin-bottom: 0.4rem;
-}
-
-/* ---- Form elements ---- */
-input[type="text"],
-input[type="number"],
-textarea {
-  width: 100%;
-  background: rgba(255,255,255,0.5);
-  border: 1px solid var(--paper-aged);
-  border-bottom: 2px solid var(--wood-mid);
-  padding: 0.6rem 0.75rem;
-  font-family: var(--font-body);
-  font-size: 1rem;
-  color: var(--ink);
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-input[type="text"]:focus,
-input[type="number"]:focus,
-textarea:focus {
-  background: rgba(255,255,255,0.8);
-  border-color: var(--gold);
-  border-bottom-color: var(--gold);
-}
-
-textarea {
-  resize: vertical;
-  min-height: 100px;
-}
-
-/* ---- Buttons ---- */
-.btn {
-  display: inline-block;
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.7rem 1.8rem;
-  border: 2px solid currentColor;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
-  text-decoration: none;
-  background: none;
-  position: relative;
-}
-
-.btn:active { transform: translateY(1px); }
-
-.btn-primary {
-  background: var(--wood);
-  color: var(--gold-light);
-  border-color: var(--gold);
-  box-shadow: 2px 2px 0 rgba(0,0,0,0.4);
-}
-
-.btn-primary:hover {
-  background: var(--wood-mid);
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
-}
-
-.btn-secondary {
-  background: transparent;
-  color: var(--wood-mid);
-  border-color: var(--wood-mid);
-  box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
-}
-
-.btn-secondary:hover {
-  background: var(--paper-dark);
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--paper);
-  border-color: rgba(255,255,255,0.4);
-  font-size: 0.8rem;
-}
-
-.btn-ghost:hover {
-  background: rgba(255,255,255,0.1);
-}
-
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ---- Divider ---- */
-.divider {
+.main-btn-wrap { pointer-events: auto; position: relative; width: 100px; height: 100px; }
+.main-btn {
+  width: 100%; height: 100%;
+  border-radius: 50%;
   border: none;
-  border-top: 1px solid var(--paper-aged);
-  margin: 1.5rem 0;
-}
-
-/* ---- Player chips ---- */
-.player-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
-}
-
-.player-chip {
-  background: var(--wood);
-  color: var(--gold-light);
-  border: 1px solid var(--gold);
-  padding: 0.3rem 0.75rem;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.player-chip .remove {
   cursor: pointer;
-  opacity: 0.6;
-  font-size: 1.1rem;
-  line-height: 1;
-  transition: opacity 0.15s;
-}
-.player-chip .remove:hover { opacity: 1; }
-
-/* ---- Word reveal ---- */
-.word-reveal-container {
-  text-align: center;
-  padding: 2rem 0;
-}
-
-.word-the {
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 0.9rem;
-  color: var(--paper-aged);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  display: block;
-  margin-bottom: 0.3rem;
-}
-
-.word-display {
-  font-family: var(--font-display);
-  font-size: clamp(2.5rem, 8vw, 4.5rem);
-  font-weight: 900;
-  font-style: italic;
-  color: var(--paper);
-  text-shadow:
-    3px 3px 0 rgba(0,0,0,0.4),
-    0 0 60px rgba(184,135,42,0.4);
-  letter-spacing: -0.01em;
-  line-height: 1;
-  display: block;
-  margin-bottom: 0.5rem;
-  opacity: 0;
-  transform: scale(0.8) translateY(10px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-
-.word-display.revealed {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-}
-
-.word-pos {
-  font-family: var(--font-body);
-  font-style: italic;
-  color: var(--gold);
-  font-size: 0.95rem;
-  opacity: 0;
-  transition: opacity 0.4s ease 0.5s;
-}
-
-.word-pos.revealed { opacity: 1; }
-
-/* ---- Pass device screen ---- */
-.pass-device {
-  text-align: center;
-}
-
-.pass-device .player-name-big {
-  font-family: var(--font-display);
-  font-size: clamp(1.8rem, 6vw, 3rem);
-  font-weight: 700;
-  color: var(--gold-light);
-  margin: 0.5rem 0 1rem;
-}
-
-.pass-device .instruction {
-  font-style: italic;
-  color: var(--paper-dark);
-  margin-bottom: 1.5rem;
-}
-
-/* ---- Definition writing ---- */
-.definition-prompt {
-  background: var(--paper-dark);
-  border-left: 4px solid var(--gold);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.25rem;
-  font-style: italic;
-}
-
-.definition-prompt .word-small {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.3rem;
-  color: var(--wood);
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-/* ---- Timer ---- */
-.timer-bar-wrap {
-  height: 6px;
-  background: var(--paper-aged);
-  margin-bottom: 1rem;
-  overflow: hidden;
-}
-
-.timer-bar {
-  height: 100%;
-  background: var(--gold);
-  transition: width 1s linear, background 1s;
-  width: 100%;
-}
-
-.timer-bar.warning { background: var(--crimson); }
-
-.timer-text {
-  text-align: right;
-  font-family: var(--font-display);
-  font-size: 0.8rem;
-  color: var(--wood-mid);
-  margin-bottom: 0.5rem;
-}
-
-/* ---- Voting slips ---- */
-.vote-list {
-  display: flex;
+  display: flex; align-items: center; justify-content: center;
   flex-direction: column;
-  gap: 0.75rem;
-  margin: 1.25rem 0;
+  gap: 4px;
+  background: var(--accent);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
+  transition: transform 0.15s ease, background 0.2s ease;
+  animation: breathe 3.4s ease-in-out infinite;
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+}
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124,111,238,0.4), 0 8px 22px rgba(0,0,0,0.4); }
+  50% { box-shadow: 0 0 0 16px rgba(124,111,238,0), 0 8px 22px rgba(0,0,0,0.4); }
+}
+.main-btn:active { transform: scale(0.95); }
+.main-btn .btn-icon { line-height: 1; display: flex; align-items: center; justify-content: center; }
+.main-btn .btn-icon svg { width: 25px; height: 25px; display: block; }
+
+.main-btn-wrap.working .main-btn { background: var(--panel-2); color: var(--paper); animation: none; }
+.main-btn-wrap.live .main-btn { background: var(--live); color: #04222a; animation: none; }
+
+.ring {
+  position: absolute; inset: -8px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  pointer-events: none;
+}
+.working .ring { border-color: rgba(146,150,172,0.4); animation: spin 1s linear infinite; border-top-color: transparent; }
+.live .ring { border-color: rgba(34,211,238,0.55); animation: pulse-ring 1.6s ease-out infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse-ring {
+  0% { transform: scale(0.92); opacity: 0.9; }
+  70% { transform: scale(1.3); opacity: 0; }
+  100% { opacity: 0; }
 }
 
-.vote-slip {
-  background: var(--paper);
-  border: 1px solid var(--paper-aged);
-  border-bottom: 2px solid rgba(0,0,0,0.15);
-  padding: 1rem 1.25rem;
-  cursor: pointer;
+.btn-icon .dot { animation: dot-loading 1.1s ease-in-out infinite; transform-origin: center; }
+.btn-icon .d2 { animation-delay: 0.15s; }
+.btn-icon .d3 { animation-delay: 0.3s; }
+@keyframes dot-loading {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.status-line {
+  pointer-events: auto;
+  font-size: 12.5px;
+  color: var(--muted);
+  background: rgba(15,15,23,0.7);
+  backdrop-filter: blur(10px);
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  text-align: center;
+  max-width: 82vw;
+}
+.status-line.err { color: var(--err-light); border-color: rgba(248,113,113,0.35); }
+
+.idle-hint {
+  pointer-events: auto;
+  color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center;
+  max-width: 78vw; margin: 2px auto 0;
+}
+.idle-hint strong { color: var(--paper); }
+
+/* ============ Reveal — Beau opening up ============ */
+.reveal-backdrop {
+  position: fixed; inset: 0; z-index: 960;
+  display: none; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(4, 4, 8, 0);
+  transition: background 0.35s ease;
+}
+.reveal-backdrop.open { display: flex; }
+.reveal-backdrop.visible { background: rgba(4, 4, 8, 0.72); }
+
+.reveal-panel {
   position: relative;
-  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-  box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
+  width: min(94vw, 460px);
+  max-height: 82vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 26px;
+  padding: 26px 24px calc(24px + var(--safe-bottom));
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+  transform: scale(0.04);
+  opacity: 0;
+  transition: transform 0.5s cubic-bezier(.16,1,.3,1), opacity 0.32s ease;
+  isolation: isolate;
 }
+.reveal-panel.shown { transform: scale(1); opacity: 1; }
 
-.vote-slip::before {
-  content: attr(data-letter);
+.reveal-panel::before,
+.reveal-panel::after {
+  content: '';
   position: absolute;
-  top: 0.75rem;
-  left: 1rem;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--paper-aged);
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(46px);
+  opacity: 0.22;
+  pointer-events: none;
+  will-change: transform;
+}
+.reveal-panel::before {
+  width: 220px; height: 220px;
+  top: -70px; left: -60px;
+  background: var(--accent);
+  animation: revealGlowDriftA 13s ease-in-out infinite;
+}
+.reveal-panel::after {
+  width: 200px; height: 200px;
+  bottom: -80px; right: -50px;
+  background: var(--live);
+  animation: revealGlowDriftB 16s ease-in-out infinite;
+}
+.reveal-panel > * { position: relative; z-index: 1; }
+
+@keyframes revealGlowDriftA {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(24px, 18px) scale(1.15); }
+}
+@keyframes revealGlowDriftB {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-20px, -16px) scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-panel::before, .reveal-panel::after { animation: none; }
 }
 
-.vote-slip .slip-text {
-  padding-left: 1.5rem;
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 1rem;
-  color: var(--ink);
+.reveal-close {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer;
+  width: 30px; height: 30px;
+}
+.reveal-icons { display: flex; justify-content: center; gap: 12px; margin-bottom: 12px; }
+.reveal-icons svg { width: 26px; height: 26px; color: var(--accent-light); display: block; }
+.reveal-summary {
+  text-align: center; font-family: var(--font-display); font-weight: 600;
+  font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); margin-bottom: 16px;
+}
+.reveal-text { font-size: 16px; line-height: 1.5; color: var(--paper); font-family: var(--font-display); font-weight: 500; }
+
+/* Real photos of the actual places, straight from Wikipedia's own
+   pageimages thumbnail for that article — never generated. Empty and
+   collapses to nothing when none of this stop's places had one. */
+.passage-images { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.passage-images:empty { display: none; margin-bottom: 0; }
+.passage-image {
+  flex: none; width: 96px; display: block; text-decoration: none; color: inherit;
+  background: none; border: none; padding: 0; font: inherit; cursor: pointer;
+}
+.passage-image img {
+  width: 96px; height: 96px; object-fit: cover; border-radius: 14px; display: block;
+  background: var(--panel-2); border: 1px solid var(--border);
+  transition: opacity 0.15s ease;
+}
+.passage-image:active img { opacity: 0.75; }
+.passage-image span {
+  display: block; margin-top: 5px; font-size: 10.5px; color: var(--muted-2);
+  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.vote-slip:hover {
-  background: var(--paper-dark);
-  transform: translateY(-1px);
-  box-shadow: 2px 4px 8px rgba(0,0,0,0.2);
+/* Each narrated paragraph gets a small icon guessed from its own content,
+   real spacing between paragraphs, and, when the model closes with a
+   "NEXT:" line, a visually distinct "what to do now" row at the end. */
+.passage-para { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
+.passage-para:last-child { margin-bottom: 0; }
+.passage-para p { margin: 0; }
+.para-icon { flex: none; width: 20px; height: 20px; margin-top: 4px; color: var(--accent-light); opacity: 0.85; }
+.para-icon svg { width: 100%; height: 100%; display: block; }
+.passage-next { margin-top: 6px; padding-top: 16px; border-top: 1px dashed var(--border-strong); }
+.passage-next .para-icon { color: var(--live); opacity: 1; }
+.passage-next p { color: var(--muted); font-style: italic; }
+
+/* ============ Passage actions (shared: reveal panel + settings-style bits) ============ */
+.passage-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.speak-btn {
+  background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s ease;
+}
+.speak-btn svg { width: 17px; height: 17px; display: block; }
+.speak-btn:hover { color: var(--paper); }
+.poi-source { display: block; margin-top: 10px; font-size: 11px; color: var(--muted-2); }
+.poi-source a { color: var(--accent-light); }
+
+/* ============ Follow-up chips + ask box ============ */
+.followups { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+.followups-chips { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.followup-chip {
+  text-align: left;
+  background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 12px;
+  color: var(--paper); font-family: var(--font-body); font-size: 13.5px; line-height: 1.35;
+  padding: 10px 12px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.followup-chip:hover { border-color: var(--accent); background: rgba(124,111,238,0.12); }
+.followup-chip:active { transform: scale(0.99); }
+.followup-form { display: flex; align-items: center; gap: 8px; }
+.followup-input {
+  flex: 1; min-width: 0;
+  background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 12px;
+  color: var(--paper); font-family: var(--font-body); font-size: 14px;
+  padding: 10px 12px;
+}
+.followup-input::placeholder { color: var(--muted-2); }
+.followup-input:focus { outline: none; border-color: var(--accent); }
+.followup-send {
+  flex: none; width: 38px; height: 38px; border-radius: 12px;
+  background: var(--accent); border: none; color: var(--paper);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.followup-send svg { width: 18px; height: 18px; display: block; }
+.followup-send:hover { background: var(--accent-light); }
+.followup-answer {
+  margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border-strong);
+  font-size: 15px; line-height: 1.6; color: var(--paper);
+}
+.followup-answer .para-icon { width: 16px; height: 16px; margin-top: 3px; }
+.followup-loading { color: var(--muted); font-style: italic; margin: 0; }
+
+/* ============ Modals (settings / journal / article) ============ */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(4,4,8,0.65);
+  /* Above .reveal-backdrop (960): the article modal opens from a photo
+     inside an already-open reveal panel, so it must render on top of it,
+     not behind it. */
+  z-index: 970; display: none; align-items: flex-end;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  width: 100%; max-height: 88vh; overflow-y: auto;
+  border-radius: 18px 18px 0 0;
+  padding: 18px 18px calc(20px + var(--safe-bottom));
+  box-shadow: 0 -10px 30px var(--shadow);
+}
+.modal h2 { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--paper); margin-bottom: 4px; }
+.modal .sub { font-size: 12.5px; color: var(--muted-2); margin-bottom: 16px; }
+.modal-close {
+  float: right; background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer;
+}
+.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; color: var(--muted-2); margin: 18px 0 9px; }
+.section-label:first-of-type { margin-top: 0; }
+
+/* ============ Article modal (Beau's own write-up of a single place) ============ */
+.article-hero {
+  width: 100%; max-height: 220px; object-fit: cover; border-radius: 14px;
+  margin-bottom: 14px; display: block; background: var(--panel-2);
+}
+#articleBody {
+  font-size: 15.5px; line-height: 1.6; color: var(--paper);
+  font-family: var(--font-display); font-weight: 500; margin-top: 4px;
+}
+#articleBody .passage-para { margin-bottom: 14px; }
+#articleBody .article-loading { color: var(--muted); font-style: italic; margin: 0; }
+.article-nav {
+  display: flex; align-items: center; gap: 6px; margin: 2px 0 14px;
+  font-size: 11px; color: var(--muted-2);
+}
+.article-nav svg { width: 12px; height: 12px; flex: none; color: var(--accent-light); }
+
+.persona-list { display: flex; flex-direction: column; gap: 8px; }
+.persona-opt {
+  display: flex; gap: 10px; align-items: flex-start;
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.persona-opt.sel { border-color: var(--accent); background: rgba(124,111,238,0.08); }
+.persona-opt input { margin-top: 3px; accent-color: var(--accent); }
+.persona-opt .p-name { font-weight: 600; font-size: 13.5px; color: var(--paper); }
+.persona-opt .p-desc { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.custom-persona-input {
+  width: 100%; margin-top: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--paper); padding: 9px 11px; font-size: 13px; font-family: var(--font-body);
+  resize: vertical; min-height: 54px;
 }
 
-.vote-slip.selected {
-  background: var(--wood);
-  border-color: var(--gold);
+.settings-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.settings-row:last-child { border-bottom: none; }
+.settings-row .label { font-size: 13.5px; color: var(--paper); }
+.settings-row .hint { font-size: 11px; color: var(--muted-2); margin-top: 2px; }
+.settings-row input[type=range] { width: 130px; accent-color: var(--accent); }
+.toggle {
+  width: 40px; height: 23px; border-radius: 999px; background: var(--border-strong);
+  position: relative; cursor: pointer; flex: 0 0 auto; border: none;
 }
-
-.vote-slip.selected .slip-text {
-  color: var(--paper);
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%;
+  background: #fff; transition: left 0.18s ease;
 }
+.toggle.on::after { left: 20px; }
 
-.vote-slip.selected::before {
-  color: var(--gold);
+.rename-input {
+  width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--paper); padding: 8px 11px; font-size: 13.5px; margin-top: 6px;
 }
-
-.vote-slip.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.small-btn {
+  background: var(--panel-2); color: var(--paper); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 12px; font-size: 12.5px; cursor: pointer; margin-top: 4px;
 }
+.small-btn.danger { color: var(--err-light); border-color: rgba(248,113,113,0.3); }
 
-.vote-slip.disabled:hover {
-  transform: none;
-  box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
+.journal-entry {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
 }
+.journal-entry:last-child { border-bottom: none; }
+.journal-date { font-size: 11px; color: var(--accent-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.journal-loc { font-size: 11px; color: var(--muted-2); margin-top: 1px; }
+.journal-pois { font-size: 13px; color: var(--paper); margin-top: 6px; line-height: 1.6; }
+.journal-pois li { margin-left: 16px; }
 
-/* ---- Results ---- */
-.result-slip {
-  background: var(--paper);
-  border: 1px solid var(--paper-aged);
-  border-bottom: 2px solid rgba(0,0,0,0.15);
-  padding: 1rem 1.25rem 1rem 3rem;
-  margin-bottom: 0.75rem;
-  position: relative;
-  box-shadow: 1px 2px 4px rgba(0,0,0,0.15);
+.toast-wrap {
+  position: absolute; left: 0; right: 0; bottom: calc(96px + var(--safe-bottom));
+  display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 950; pointer-events: none;
 }
-
-.result-slip.real {
-  border-left: 4px solid var(--gold);
-  background: #f5edd8;
+.toast {
+  background: rgba(15,15,23,0.95); border: 1px solid var(--border-strong);
+  color: var(--paper); font-size: 12.5px; padding: 9px 16px; border-radius: 999px;
+  box-shadow: 0 6px 18px var(--shadow); max-width: 88vw; text-align: center;
 }
-
-.result-slip .slip-letter {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--paper-aged);
-}
-
-.result-slip.real .slip-letter { color: var(--gold); }
-
-.result-slip .slip-text {
-  font-style: italic;
-  color: var(--ink);
-  margin-bottom: 0.4rem;
-}
-
-.result-slip .slip-meta {
-  font-size: 0.82rem;
-  color: var(--wood-mid);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.result-slip .author-tag {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.78rem;
-}
-
-.fooled-badge {
-  background: var(--crimson);
-  color: var(--paper);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  padding: 0.15rem 0.4rem;
-}
-
-.correct-badge {
-  background: var(--wood);
-  color: var(--gold-light);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  padding: 0.15rem 0.4rem;
-}
-
-/* ---- Scores ---- */
-.score-list {
-  list-style: none;
-  margin: 1rem 0;
-}
-
-.score-row {
-  display: flex;
-  align-items: baseline;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--paper-aged);
-  gap: 0.75rem;
-}
-
-.score-row:last-child { border-bottom: none; }
-
-.score-rank {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: var(--paper-aged);
-  width: 1.5rem;
-  flex-shrink: 0;
-}
-
-.score-name {
-  flex: 1;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--ink);
-}
-
-.score-pts {
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 1.4rem;
-  color: var(--wood);
-}
-
-.score-delta {
-  font-size: 0.85rem;
-  color: var(--crimson);
-  font-style: italic;
-  min-width: 2.5rem;
-  text-align: right;
-}
-
-.score-delta.positive { color: var(--wood-mid); }
-
-.score-row.winner .score-name { color: var(--gold); }
-.score-row.winner .score-pts  { color: var(--gold); }
-
-/* ---- Round badge ---- */
-.round-badge {
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--paper);
-  opacity: 0.6;
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-/* ---- Candle decorative ---- */
-.title-deco {
-  text-align: center;
-  margin-bottom: 1rem;
-  color: var(--gold);
-  font-size: 1.4rem;
-  opacity: 0.7;
-  letter-spacing: 0.3em;
-}
-
-/* ---- Flex helpers ---- */
-.row { display: flex; gap: 0.75rem; align-items: center; }
-.row-end { justify-content: flex-end; }
-.row-between { justify-content: space-between; }
-.mt1 { margin-top: 1rem; }
-.mt2 { margin-top: 1.5rem; }
-.mb1 { margin-bottom: 1rem; }
-.mb05 { margin-bottom: 0.5rem; }
-.text-center { text-align: center; }
-.italic { font-style: italic; }
-.small { font-size: 0.85rem; }
-.muted { color: var(--wood-mid); }
-
-/* ---- Config row ---- */
-.config-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 0.75rem 0;
-  flex-wrap: wrap;
-}
-.config-row label { flex: 1; min-width: 160px; }
-.config-row input[type="number"] { width: 70px; flex-shrink: 0; }
-.config-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
-
-/* ---- Final winner ---- */
-.winner-display {
-  text-align: center;
-  padding: 1.5rem 0;
-}
-
-.winner-crown {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  display: block;
-}
-
-.winner-name {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  font-weight: 900;
-  color: var(--gold-light);
-  text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
-  display: block;
-}
-
-.winner-label {
-  font-style: italic;
-  color: var(--paper-aged);
-  margin-top: 0.25rem;
-}
-
-/* ---- Notification ---- */
-.notif {
-  position: fixed;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%) translateY(100px);
-  background: var(--wood);
-  color: var(--gold-light);
-  border: 1px solid var(--gold);
-  padding: 0.7rem 1.5rem;
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-  z-index: 999;
-  transition: transform 0.3s ease;
-  text-align: center;
-  max-width: 90vw;
-}
-
-.notif.show { transform: translateX(-50%) translateY(0); }
-
-/* ---- Mobile tweaks ---- */
-@media (max-width: 480px) {
-  .card { padding: 1.5rem 1.25rem; }
-  .btn { padding: 0.65rem 1.2rem; font-size: 0.82rem; }
-  .vote-slip .slip-text { font-size: 0.95rem; }
-}
-
-/* ---- Animations ---- */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.fade-in { animation: fadeIn 0.4s ease forwards; }
-
-@keyframes flicker {
-  0%,100% { opacity: 0.7; }
-  50%      { opacity: 0.85; }
-}
+.toast.err { border-color: rgba(248,113,113,0.4); color: var(--err-light); }
 </style>
 </head>
 <body>
+<div id="app">
+  <div id="map"></div>
 
-<!-- ========== SCREEN: TITLE ========== -->
-<div id="screen-title" class="screen active">
-  <div class="title-deco">— ✦ —</div>
-  <h1>Balder<span>dash</span></h1>
-  <p class="subtitle">The game of balderdash &amp; bluff</p>
-  <div style="display:flex; gap:1rem; flex-wrap:wrap; justify-content:center;">
-    <button class="btn btn-primary" onclick="showScreen('screen-setup')">Begin</button>
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <span class="brand-mark" id="brandMark">Beau</span>
+    </div>
+    <div class="icon-btn-row">
+      <button class="icon-btn" id="journalBtn" title="Walk journal" aria-label="Walk journal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h11a1 1 0 011 1v14a1 1 0 01-1 1H8a2 2 0 01-2-2V4z"/><path d="M6 4a2 2 0 00-2 2v12a2 2 0 002 2"/><line x1="9" y1="9" x2="14" y2="9"/><line x1="9" y1="13" x2="14" y2="13"/></svg>
+      </button>
+      <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V19a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H4a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H10a1.7 1.7 0 001-1.5V4a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V10a1.7 1.7 0 001.5 1H20a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+      </button>
+    </div>
   </div>
-  <div style="margin-top:2rem;">
-    <button class="btn btn-ghost" onclick="showScreen('screen-rules')">How to Play</button>
+
+  <div class="control-col">
+    <div class="main-btn-wrap idle" id="mainBtnWrap">
+      <div class="ring"></div>
+      <button class="main-btn" id="mainBtn">
+        <span class="btn-icon" id="mainBtnIcon"></span>
+        <span id="mainBtnLabel">Beau</span>
+      </button>
+    </div>
+    <div class="status-line" id="statusLine">Tap for a lookup · hold to follow you</div>
+    <div class="idle-hint" id="idleHint">Press <strong id="idleHintBtnName">Beau</strong> and I'll tell you what I notice — real places, close by, in the order you'll reach them.</div>
+  </div>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+</div>
+
+<div class="reveal-backdrop" id="revealBackdrop">
+  <div class="reveal-panel" id="revealPanel">
+    <button class="reveal-close" id="revealClose">✕</button>
+    <div class="reveal-icons" id="revealIcons"></div>
+    <div class="reveal-summary" id="revealSummary"></div>
+    <div class="passage-images" id="revealImages"></div>
+    <div class="reveal-text" id="revealText"></div>
+    <div class="passage-actions">
+      <button class="speak-btn" id="revealSpeakBtn" title="Read this aloud"></button>
+    </div>
+    <span class="poi-source" id="revealSources"></span>
+
+    <div class="followups" id="followups" hidden>
+      <div class="followups-chips" id="followupChips"></div>
+      <form class="followup-form" id="followupForm">
+        <input type="text" id="followupInput" class="followup-input" placeholder="Ask Beau anything about this…" autocomplete="off" />
+        <button type="submit" class="followup-send" id="followupSend" aria-label="Ask">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+    </div>
+    <div class="followup-answer" id="followupAnswer" hidden></div>
   </div>
 </div>
 
-<!-- ========== SCREEN: RULES ========== -->
-<div id="screen-rules" class="screen">
-  <div class="card fade-in">
-    <h2>How to Play</h2>
-    <hr class="divider">
-    <p class="mb1">Each round, an obscure word is revealed. Every player writes a convincing <em>fake</em> definition — then everyone votes for the one they believe is real.</p>
-    <p class="mb1"><strong>Points:</strong></p>
-    <ul style="padding-left:1.5rem; margin-bottom:1rem;">
-      <li>+1 for guessing the real definition</li>
-      <li>+1 for each opponent fooled by your fake</li>
-    </ul>
-    <p class="mb1 italic muted small">Pass the device between players during the writing phase so definitions stay secret.</p>
-    <hr class="divider">
-    <div class="text-center">
-      <button class="btn btn-primary" onclick="showScreen('screen-setup')">Got it — Let's Play</button>
-    </div>
+<div class="modal-backdrop" id="articleBackdrop">
+  <div class="modal">
+    <button class="modal-close" id="articleClose">✕</button>
+    <img class="article-hero" id="articleHero" alt="" hidden>
+    <h2 id="articleTitle"></h2>
+    <div class="sub" id="articleMeta"></div>
+    <div class="article-nav" id="articleNav"></div>
+    <div id="articleBody"></div>
+    <span class="poi-source" id="articleSource"></span>
   </div>
 </div>
 
-<!-- ========== SCREEN: SETUP ========== -->
-<div id="screen-setup" class="screen">
-  <div class="card fade-in">
-    <h2>Gather Your Players</h2>
-    <hr class="divider">
+<div class="modal-backdrop" id="settingsBackdrop">
+  <div class="modal">
+    <button class="modal-close" id="settingsClose">✕</button>
+    <h2>Settings</h2>
+    <div class="sub">Tune your guide.</div>
 
-    <label class="label" for="player-input">Player name</label>
-    <div class="row mb1">
-      <input type="text" id="player-input" placeholder="Enter name…" maxlength="24" autocomplete="off">
-      <button class="btn btn-secondary" onclick="addPlayer()">Add</button>
+    <div class="section-label">Guide persona</div>
+    <div class="persona-list" id="personaList"></div>
+    <textarea class="custom-persona-input" id="customPersonaInput" placeholder="Describe how your custom guide should sound…" hidden></textarea>
+
+    <div class="section-label">Behaviour</div>
+    <div class="settings-row">
+      <div><div class="label">Voice narration</div><div class="hint">Read guide aloud with speechSynthesis</div></div>
+      <button class="toggle on" id="voiceToggle"></button>
+    </div>
+    <div class="settings-row">
+      <div><div class="label">Search radius</div><div class="hint" id="radiusHint">400 m</div></div>
+      <input type="range" id="radiusRange" min="100" max="1200" step="50" value="400">
+    </div>
+    <div class="settings-row">
+      <div><div class="label">Live refresh distance</div><div class="hint" id="moveHint">85 m</div></div>
+      <input type="range" id="moveRange" min="50" max="150" step="5" value="85">
     </div>
 
-    <div id="player-list-display" class="player-list"></div>
-
-    <hr class="divider">
-
-    <h3>Game Settings</h3>
-
-    <div class="config-row">
-      <label class="label" for="rounds-input">Rounds</label>
-      <input type="number" id="rounds-input" value="5" min="1" max="20">
+    <div class="section-label">Naming</div>
+    <div class="settings-row" style="display:block;">
+      <div class="label">App name</div>
+      <input class="rename-input" id="appNameInput" maxlength="24">
+    </div>
+    <div class="settings-row" style="display:block;">
+      <div class="label">Button label</div>
+      <input class="rename-input" id="buttonNameInput" maxlength="18">
     </div>
 
-    <div class="config-row">
-      <label class="label" for="timer-check">Writing timer (60 s)</label>
-      <input type="checkbox" id="timer-check" checked>
-    </div>
-
-    <hr class="divider">
-    <div class="row row-between">
-      <button class="btn btn-ghost" style="color:var(--wood-mid); border-color:var(--wood-mid);" onclick="showScreen('screen-title')">← Back</button>
-      <button class="btn btn-primary" id="start-btn" onclick="startGame()" disabled>Start Game</button>
-    </div>
+    <div class="section-label">Data</div>
+    <button class="small-btn" id="clearCacheBtn">Clear lookup cache</button>
+    <button class="small-btn danger" id="resetSettingsBtn" style="margin-left:8px;">Reset to defaults</button>
   </div>
 </div>
 
-<!-- ========== SCREEN: ROUND INTRO ========== -->
-<div id="screen-round-intro" class="screen">
-  <div id="round-intro-badge" class="round-badge"></div>
-  <div class="word-reveal-container">
-    <span class="word-the">The word is…</span>
-    <span id="word-display" class="word-display"></span>
-    <span id="word-pos" class="word-pos"></span>
-  </div>
-  <button class="btn btn-primary" onclick="beginWritingPhase()">Begin Writing</button>
-</div>
-
-<!-- ========== SCREEN: PASS DEVICE ========== -->
-<div id="screen-pass" class="screen">
-  <div class="card fade-in pass-device">
-    <p class="muted italic small">Pass the device to…</p>
-    <p id="pass-player-name" class="player-name-big"></p>
-    <p class="instruction small">Do not show your screen to other players.</p>
-    <button class="btn btn-primary" onclick="startPlayerWrite()">I'm Ready</button>
+<div class="modal-backdrop" id="journalBackdrop">
+  <div class="modal">
+    <button class="modal-close" id="journalClose">✕</button>
+    <h2>Walk journal</h2>
+    <div class="sub">A quiet log of where you went and what you were told.</div>
+    <div id="journalList"></div>
+    <div class="empty-hint" id="journalEmpty" hidden>Nothing logged yet — your first lookup will appear here.</div>
+    <button class="small-btn" id="exportJournalBtn" style="margin-top:14px;">Export journal (.json)</button>
+    <button class="small-btn danger" id="clearJournalBtn" style="margin-top:14px; margin-left:8px;">Clear journal</button>
   </div>
 </div>
 
-<!-- ========== SCREEN: WRITE ========== -->
-<div id="screen-write" class="screen">
-  <div class="card fade-in">
-    <div id="write-round-badge" class="round-badge mb05"></div>
-
-    <div class="definition-prompt">
-      <span id="write-word" class="word-small"></span>
-      <span id="write-pos" class="muted small italic"></span>
-    </div>
-
-    <div id="timer-display" style="display:none;">
-      <div class="timer-text"><span id="timer-text">60</span>s remaining</div>
-      <div class="timer-bar-wrap"><div id="timer-bar" class="timer-bar"></div></div>
-    </div>
-
-    <label class="label" for="def-input">Your definition</label>
-    <textarea id="def-input" placeholder="Write a convincing definition…" maxlength="400"></textarea>
-
-    <div class="row row-between mt2">
-      <span class="small muted italic" id="write-player-label"></span>
-      <button class="btn btn-primary" id="submit-def-btn" onclick="submitDefinition()">Submit</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== SCREEN: VOTE ========== -->
-<div id="screen-vote-pass" class="screen">
-  <div class="card fade-in pass-device">
-    <p class="muted italic small">Pass the device to…</p>
-    <p id="vote-pass-player-name" class="player-name-big"></p>
-    <p class="instruction small">Time to vote — choose wisely.</p>
-    <button class="btn btn-primary" onclick="startPlayerVote()">I'm Ready</button>
-  </div>
-</div>
-
-<div id="screen-vote" class="screen">
-  <div class="card fade-in">
-    <div id="vote-round-badge" class="round-badge mb05"></div>
-    <h2 id="vote-word-display" style="margin-bottom:0.25rem;"></h2>
-    <p class="muted small italic text-center mb1">Which is the real definition?</p>
-
-    <div id="vote-list" class="vote-list"></div>
-
-    <div class="row row-between mt1">
-      <span class="small muted italic" id="vote-player-label"></span>
-      <button class="btn btn-primary" id="vote-btn" onclick="submitVote()" disabled>Cast Vote</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== SCREEN: RESULTS ========== -->
-<div id="screen-results" class="screen">
-  <div class="card fade-in">
-    <div id="results-round-badge" class="round-badge mb05"></div>
-    <h2 id="results-word-display"></h2>
-    <div id="results-list" class="mt1"></div>
-    <hr class="divider">
-    <h3>Scores after this round</h3>
-    <ul id="results-scores" class="score-list"></ul>
-    <hr class="divider">
-    <div class="text-center">
-      <button class="btn btn-primary" id="next-round-btn" onclick="nextRound()">Next Round →</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== SCREEN: FINAL ========== -->
-<div id="screen-final" class="screen">
-  <div class="card fade-in">
-    <div class="winner-display">
-      <span class="winner-crown">★</span>
-      <span id="winner-name-display" class="winner-name"></span>
-      <span class="winner-label">wins the game!</span>
-    </div>
-    <hr class="divider">
-    <h3>Final Scores</h3>
-    <ul id="final-scores" class="score-list"></ul>
-    <hr class="divider">
-    <div class="text-center">
-      <button class="btn btn-primary" onclick="resetGame()">Play Again</button>
-    </div>
-  </div>
-</div>
-
-<!-- ========== NOTIFICATION ========== -->
-<div id="notif" class="notif"></div>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-// ================================================================
-//  WORD BANK
-// ================================================================
-const WORDS = [
-  { word: "fipple",          partOfSpeech: "n.", definition: "A plug in the mouthpiece of a wind instrument such as a recorder, with a narrow opening that directs the air flow to produce sound." },
-  { word: "snollygoster",    partOfSpeech: "n.", definition: "A shrewd, unprincipled person, especially a politician who acts only for personal gain." },
-  { word: "groak",           partOfSpeech: "v.", definition: "To stare silently at someone while they are eating, hoping they will offer you some of their food." },
-  { word: "cachinnate",      partOfSpeech: "v.", definition: "To laugh loudly or immoderately." },
-  { word: "ultracrepidarian",partOfSpeech: "adj.", definition: "Noting or pertaining to a person who gives opinions and advice on matters outside of one's knowledge or competence." },
-  { word: "vellichor",       partOfSpeech: "n.", definition: "The strange wistfulness of used bookshops, which are somehow always melancholy despite brimming with other people's epiphanies." },
-  { word: "sonder",          partOfSpeech: "n.", definition: "The realisation that each passerby has a life as vivid and complex as one's own." },
-  { word: "petrichor",       partOfSpeech: "n.", definition: "The pleasant, earthy smell produced when rain falls on dry soil." },
-  { word: "widdershins",     partOfSpeech: "adv.", definition: "In a direction contrary to the sun's course, considered as unlucky; anticlockwise." },
-  { word: "borborygmus",     partOfSpeech: "n.", definition: "A rumbling or gurgling noise made by the movement of fluid and gas in the intestines." },
-  { word: "callipygian",     partOfSpeech: "adj.", definition: "Having well-shaped or finely developed buttocks." },
-  { word: "meldrop",         partOfSpeech: "n.", definition: "A drop of mucus hanging from the nose." },
-  { word: "quomodocunquize", partOfSpeech: "v.", definition: "To make money by any means possible." },
-  { word: "jentacular",      partOfSpeech: "adj.", definition: "Pertaining to or taken at breakfast." },
-  { word: "gongoozle",       partOfSpeech: "v.", definition: "To stare idly at boats and activity on a canal." },
-  { word: "drisk",           partOfSpeech: "n.", definition: "Weather that is not quite drizzle and not quite mist; a very fine, wet dampness in the air." },
-  { word: "smellfungus",     partOfSpeech: "n.", definition: "A person who finds fault with everything; a perpetual grumbler." },
-  { word: "flibbertigibbet", partOfSpeech: "n.", definition: "A frivolous, flighty, or excessively talkative person." },
-  { word: "mumpsimus",       partOfSpeech: "n.", definition: "A traditional custom or notion adhered to although shown to be unreasonable; a person who stubbornly adheres to such a custom." },
-  { word: "bimble",          partOfSpeech: "v.", definition: "To travel at a leisurely pace with no particular direction or purpose." },
-  { word: "apricity",        partOfSpeech: "n.", definition: "The warmth of the sun in winter." },
-  { word: "lunting",         partOfSpeech: "v.", definition: "Walking while smoking a pipe." },
-  { word: "vagitus",         partOfSpeech: "n.", definition: "The cry of a newborn baby." },
-  { word: "philosophunculist",partOfSpeech: "n.", definition: "A person who pretends to know more than they do in order to impress others." },
-  { word: "tyrotoxism",      partOfSpeech: "n.", definition: "Poisoning by cheese or other dairy products." },
-  { word: "katzenjammer",    partOfSpeech: "n.", definition: "The unpleasant after-effects of excessive drinking; a hangover; also, a state of depression or bewilderment." },
-  { word: "curglaff",        partOfSpeech: "n.", definition: "The shock felt when plunging into cold water." },
-  { word: "halfpace",        partOfSpeech: "n.", definition: "A landing of a staircase where the stair turns back in exactly the reverse direction of the lower flight." },
-  { word: "ostrobogulous",   partOfSpeech: "adj.", definition: "Slightly risqué or indecent; bizarre; interesting or unusual." },
-  { word: "euneirophrenia",  partOfSpeech: "n.", definition: "Peace of mind after a pleasant dream." },
-  { word: "virago",          partOfSpeech: "n.", definition: "A woman regarded as noisy, scolding, or domineering; also, a woman of masculine strength or spirit." },
-  { word: "scripturient",    partOfSpeech: "adj.", definition: "Having a strong urge to write." },
-  { word: "zaftig",          partOfSpeech: "adj.", definition: "Of a woman: having a full, rounded figure; plump." },
-  { word: "lollygag",        partOfSpeech: "v.", definition: "To spend time aimlessly; to dawdle or fool around." },
-  { word: "noctambulism",    partOfSpeech: "n.", definition: "The act of walking or performing other motor acts while asleep; sleepwalking." },
-  { word: "tittynope",       partOfSpeech: "n.", definition: "A small quantity of something left over." },
-  { word: "pabulum",         partOfSpeech: "n.", definition: "Food or nourishment; bland or insipid intellectual matter or entertainment." },
-  { word: "velitation",      partOfSpeech: "n.", definition: "A minor dispute or skirmish." },
-  { word: "fugacious",       partOfSpeech: "adj.", definition: "Tending to disappear or flee; transient; fleeting." },
-  { word: "snirtle",         partOfSpeech: "v.", definition: "To suppress or partly stifle a laugh; to snigger." },
-  { word: "rawgabbit",       partOfSpeech: "n.", definition: "A person who speaks confidently about a subject they know nothing about." },
-  { word: "callithumpian",   partOfSpeech: "adj.", definition: "Of or relating to a discordant band of music, especially one used in a mock serenade." },
-  { word: "zwodder",         partOfSpeech: "n.", definition: "A drowsy or stupefied state of body or mind." },
-  { word: "yonderly",        partOfSpeech: "adj.", definition: "Mentally or emotionally distant; absent-minded; vague or dreamy." },
-  { word: "taradiddle",      partOfSpeech: "n.", definition: "A petty lie; also, pretentious nonsense." },
-  { word: "woofits",         partOfSpeech: "n.", definition: "An unwell feeling, especially a headache caused by excessive drinking." },
-  { word: "sprachgefühl",    partOfSpeech: "n.", definition: "An intuitive sense of what is linguistically appropriate in a given situation; a feel for language." },
-  { word: "mugwump",         partOfSpeech: "n.", definition: "A person who remains aloof or independent, especially from party politics." },
-  { word: "resistentialism", partOfSpeech: "n.", definition: "The seemingly malicious behaviour of inanimate objects." },
-  { word: "jabberwocky",     partOfSpeech: "n.", definition: "Invented or meaningless language; nonsense." },
-];
+(function () {
+'use strict';
 
-// ================================================================
-//  GAME STATE
-// ================================================================
-let state = {
-  players: [],       // [{name, score}]
-  rounds: 5,
-  useTimer: true,
-  timerSeconds: 60,
-  currentRound: 0,
-  wordPool: [],
-  currentWord: null,       // {word, partOfSpeech, definition}
-  definitions: [],         // [{playerId, text, isReal}]
-  shuffledDefs: [],        // [{origIndex, text, isReal, playerId}] — for display
-  votes: {},               // {playerId: shuffledDefIndex}
-  writePlayerIndex: 0,
-  votePlayerIndex: 0,
-  timerInterval: null,
-  timerRemaining: 0,
-  prevScores: [],
+/* =========================================================================
+   CONFIG — the one place to rename the app, the button, and tune behaviour.
+   ========================================================================= */
+const CONFIG = {
+  appName: 'Beau',
+  buttonName: 'Beau',
+  buttonNameWorking: 'Feeling this out…',
+  buttonNameLive: 'With you',
+
+  radiusMeters: 400,          // how far to search around the user
+  maxRadiusMeters: 1200,      // ceiling for the radius slider and for auto-widening on an empty result
+  maxResultsFetched: 20,      // cap on raw Wikipedia geosearch results per lookup (Overpass is bounded by radius instead)
+  maxResultsShown: 10,        // cap on cards rendered per lookup
+  maxAutoNarrated: 3,         // only the closest few get read aloud automatically — the rest are still on screen, tap any card's speaker icon to hear it
+
+  liveMoveThresholdMeters: 85,  // live mode: refresh once moved this far…
+  liveTimeThresholdMs: 3 * 60 * 1000, // …or this long since the last lookup
+  liveWatchMinIntervalMs: 4000, // throttle raw GPS ticks before even checking thresholds
+
+  cacheDecimalPlaces: 3,      // ~110m grid for the "already asked about this corner" cache
+
+  // Narration layer: this is the single swappable seam. Points at the
+  // deployed Cloudflare Worker (see worker/) that proxies a Claude API
+  // call so real retrieved facts get persona-voiced narration instead of
+  // read verbatim. Set to null to fall back to the keyless passthrough.
+  narrationEndpoint: 'https://beau-narration-proxy.atmarcusat.workers.dev',
+
+  wikipediaApi: 'https://en.wikipedia.org/w/api.php',
+  overpassApi: 'https://overpass-api.de/api/interpreter', // OpenStreetMap enrichment — free, no key, fills gaps Wikipedia doesn't cover
+  wikidataApi: 'https://www.wikidata.org/w/api.php',       // structured facts for things without a full Wikipedia article
+  wikidataEntityData: 'https://www.wikidata.org/wiki/Special:EntityData',
+  wikiThumbSize: 400, // px, requested from Wikipedia's own pageimages thumbnail — real photos, never generated
+
+  // Beau is the app's real, default voice — not a costume like the others.
+  // He has no face; he's a presence you feel through the pulse and hear
+  // through this voice: steady, quietly warm, present-tense, a little
+  // uncanny. He notices things rather than narrating them, and he always
+  // hands you the real fact — he just doesn't make a show of it.
+  personas: [
+    { id: 'beau', name: 'Beau', voice: { rate: 0.94, pitch: 0.97 },
+      desc: 'No performance — just the presence that’s always here. Steady, a little uncanny, glad you noticed.' },
+    { id: 'historian', name: 'The Dry Historian', voice: { rate: 0.95, pitch: 0.88 },
+      desc: 'Precise, a little wry, treats every date like it matters.' },
+    { id: 'local', name: 'The Excitable Local', voice: { rate: 1.14, pitch: 1.16 },
+      desc: 'Warm, breathless, thrilled you asked about their neighbourhood.' },
+    { id: 'noir', name: 'Noir Voiceover', voice: { rate: 0.86, pitch: 0.74 },
+      desc: 'Moody, clipped, every street corner sounds like a confession.' },
+    { id: 'poet', name: 'The Poet', voice: { rate: 0.92, pitch: 1.02 },
+      desc: 'Lyrical and unhurried, finds the image inside the fact.' },
+    { id: 'custom', name: 'Custom…', voice: { rate: 1.0, pitch: 1.0 },
+      desc: 'Describe your own guide — used when narration is proxied through a model.' }
+  ],
+  defaultPersonaId: 'beau'
 };
 
-// ================================================================
-//  UTILITY
-// ================================================================
-function $(id) { return document.getElementById(id); }
+/* =========================================================================
+   State
+   ========================================================================= */
+const state = {
+  mode: 'idle', // idle | working | live
+  userPos: null,
+  watchId: null,
+  lastLiveTick: 0,
+  lastLookup: { pos: null, time: 0 },
+  cache: new Map(),          // roundedCoordKey -> array of poi
+  currentPois: [],
+  passagePois: [],   // the subset actually woven into Beau's current passage
+  articlePois: [],   // the browsable set behind the article modal (state.currentPois at open time)
+  articleIndex: -1,  // which one is currently open, for swipe-to-explore
+  articleHistory: [], // pois opened before the current one, via a fresh photo tap (not lateral swipe) — "back" pops this
+  lastArticlePoi: null,
+  personaId: loadSetting('personaId', CONFIG.defaultPersonaId),
+  customPersonaText: loadSetting('customPersonaText', ''),
+  voiceOn: loadSetting('voiceOn', true) !== false,
+  markers: new Map(),
+  speechQueueId: 0
+};
 
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  $(id).classList.add('active');
+function loadSetting(key, fallback) {
+  try {
+    const raw = localStorage.getItem('cicerone.' + key);
+    return raw === null ? fallback : JSON.parse(raw);
+  } catch (e) { return fallback; }
+}
+function saveSetting(key, value) {
+  try { localStorage.setItem('cicerone.' + key, JSON.stringify(value)); } catch (e) {}
 }
 
-function notify(msg, duration = 2200) {
-  const el = $('notif');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), duration);
+CONFIG.appName = loadSetting('appName', CONFIG.appName);
+CONFIG.buttonName = loadSetting('buttonName', CONFIG.buttonName);
+
+/* =========================================================================
+   Geo utilities
+   ========================================================================= */
+function toRad(d) { return d * Math.PI / 180; }
+function toDeg(r) { return r * 180 / Math.PI; }
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+function compassLabel(deg) { return COMPASS[Math.round(deg / 45) % 8]; }
+
+function formatDistance(m) {
+  if (m < 1000) return Math.round(m / 5) * 5 + ' m';
+  return (m / 1000).toFixed(1) + ' km';
 }
 
-const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-// ================================================================
-//  SETUP
-// ================================================================
-function addPlayer() {
-  const input = $('player-input');
-  const name = input.value.trim();
-  if (!name) return;
-  if (state.players.length >= 8) { notify('Maximum 8 players'); return; }
-  if (state.players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
-    notify('Name already taken'); return;
-  }
-  state.players.push({ name, score: 0 });
-  input.value = '';
-  input.focus();
-  renderPlayerList();
+function roundCoordKey(lat, lon) {
+  return lat.toFixed(CONFIG.cacheDecimalPlaces) + ',' + lon.toFixed(CONFIG.cacheDecimalPlaces);
 }
 
-$('player-input').addEventListener('keydown', e => { if (e.key === 'Enter') addPlayer(); });
-
-function removePlayer(index) {
-  state.players.splice(index, 1);
-  renderPlayerList();
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function renderPlayerList() {
-  const el = $('player-list-display');
-  el.innerHTML = '';
-  state.players.forEach((p, i) => {
-    const chip = document.createElement('div');
-    chip.className = 'player-chip';
-    chip.innerHTML = `${p.name} <span class="remove" onclick="removePlayer(${i})">×</span>`;
-    el.appendChild(chip);
-  });
-  $('start-btn').disabled = state.players.length < 2;
+/* =========================================================================
+   Icons — small inline SVGs, no emoji, currentColor throughout.
+   ========================================================================= */
+const ICONS = {
+  idle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>',
+  working: '<svg viewBox="0 0 24 24" fill="currentColor"><circle class="dot d1" cx="6" cy="12" r="2.2"/><circle class="dot d2" cx="12" cy="12" r="2.2"/><circle class="dot d3" cx="18" cy="12" r="2.2"/></svg>',
+  live: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/><path d="M8.5 8.5a5 5 0 000 7"/><path d="M15.5 8.5a5 5 0 010 7"/><path d="M5.3 5.3a9.2 9.2 0 000 13.4"/><path d="M18.7 5.3a9.2 9.2 0 010 13.4"/></svg>',
+  speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 010 7"/><path d="M19 6a9 9 0 010 12"/></svg>'
+};
+
+/* Small decorative type glyphs for the reveal header — purely presentational
+   (picked fresh per lookup from the passage's own text), not a stored
+   category system: nothing here filters or classifies what gets shown. */
+const TYPE_ICONS = {
+  historic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v11M9 10v11M15 10v11M19 10v11"/><path d="M3 21h18"/></svg>',
+  architecture: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="1"/><path d="M10 21v-4h4v4"/><path d="M10 7h.01M14 7h.01M10 11h.01M14 11h.01"/></svg>',
+  worship: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M10.5 3.5h3"/><path d="M7 21V11l5-5 5 5v10"/><path d="M5 21h14"/></svg>',
+  art: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="1"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5-4 4-3-3-6 6"/></svg>',
+  memorial: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.5 6.5h-7L12 2z"/><path d="M8.5 8.5h7L14 21h-4L8.5 8.5z"/></svg>',
+  nature: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21c8 0 14-6 14-14V4h-3C8 4 5 10 5 18v3z"/><path d="M5 21c3-6 6-9 12-13"/></svg>',
+  direction: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c4-5 7-8.5 7-12a7 7 0 10-14 0c0 3.5 3 7 7 12z"/><circle cx="12" cy="9" r="2.3"/></svg>'
+};
+const TYPE_LABELS = { historic: 'History', architecture: 'Architecture', worship: 'Sacred spaces', art: 'Art', memorial: 'Memorials', nature: 'Green space', direction: 'Next' };
+
+/* Guesses a display type from the place's own name/description text —
+   good enough for a decorative icon and a two-word theme line, not
+   precise enough (or intended) to gate what's shown. */
+function detectPlaceType(poi) {
+  const text = `${poi.title} ${poi.extract || ''}`.toLowerCase();
+  if (/church|cathedral|chapel|abbey|mosque|synagogue|temple|shrine/.test(text)) return 'worship';
+  if (/museum|gallery|artwork|sculpture|mural|exhibition/.test(text)) return 'art';
+  if (/memorial|monument|war grave|tomb|cenotaph/.test(text)) return 'memorial';
+  if (/park|garden|green\b|common\b|meadow/.test(text)) return 'nature';
+  if (/tower|castle|palace|bridge|hall\b|building|manor|house\b/.test(text)) return 'architecture';
+  return 'historic';
+}
+function themeFor(pois) {
+  const types = pois.map(detectPlaceType);
+  const counts = {};
+  types.forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+  const ranked = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  const icons = ranked.map(t => TYPE_ICONS[t]).join('');
+  const summary = ranked.slice(0, 2).map(t => TYPE_LABELS[t]).join(' & ') || 'Nearby';
+  return { icons, summary };
 }
 
-function startGame() {
-  state.rounds = Math.max(1, Math.min(20, parseInt($('rounds-input').value) || 5));
-  state.useTimer = $('timer-check').checked;
-  state.currentRound = 0;
-  state.players.forEach(p => p.score = 0);
-  state.wordPool = shuffle(WORDS).slice(0, state.rounds);
-  if (state.wordPool.length < state.rounds) {
-    notify(`Only ${WORDS.length} words available; rounds capped.`);
-    state.rounds = state.wordPool.length;
-  }
-  startRound();
+/* =========================================================================
+   Map
+   ========================================================================= */
+let map, beauMarker, accuracyCircle;
+function initMap() {
+  map = L.map('map', { zoomControl: false, attributionControl: true }).setView([51.5074, -0.1278], 15);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    subdomains: 'abcd',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(map);
 }
 
-// ================================================================
-//  ROUND FLOW
-// ================================================================
-function startRound() {
-  state.currentRound++;
-  state.currentWord = state.wordPool[state.currentRound - 1];
-  state.definitions = [];
-  state.shuffledDefs = [];
-  state.votes = {};
-  state.writePlayerIndex = 0;
-  state.votePlayerIndex = 0;
-  state.prevScores = state.players.map(p => p.score);
-
-  $('round-intro-badge').textContent = `Round ${state.currentRound} of ${state.rounds}`;
-  const wordEl = $('word-display');
-  const posEl  = $('word-pos');
-  wordEl.textContent = state.currentWord.word;
-  posEl.textContent  = state.currentWord.partOfSpeech;
-  wordEl.classList.remove('revealed');
-  posEl.classList.remove('revealed');
-
-  showScreen('screen-round-intro');
-  setTimeout(() => {
-    wordEl.classList.add('revealed');
-    posEl.classList.add('revealed');
-  }, 150);
-}
-
-function beginWritingPhase() {
-  showPassScreen();
-}
-
-// ================================================================
-//  WRITING PHASE
-// ================================================================
-function showPassScreen() {
-  const player = state.players[state.writePlayerIndex];
-  $('pass-player-name').textContent = player.name;
-  showScreen('screen-pass');
-}
-
-function startPlayerWrite() {
-  const player = state.players[state.writePlayerIndex];
-  $('write-round-badge').textContent = `Round ${state.currentRound} of ${state.rounds}`;
-  $('write-word').textContent = state.currentWord.word;
-  $('write-pos').textContent  = state.currentWord.partOfSpeech;
-  $('write-player-label').textContent = player.name;
-  $('def-input').value = '';
-  $('def-input').focus();
-
-  const timerDiv = $('timer-display');
-  if (state.useTimer) {
-    timerDiv.style.display = 'block';
-    startTimer(state.timerSeconds, () => submitDefinition(true));
+/* Beau starts as a fixed on-screen control — there has to be something to
+   press before we know where the user is, since location is never
+   requested until pressed. The instant a real coordinate arrives, he's
+   moved — the same DOM node, listeners and all, not a re-render — onto
+   the map itself, anchored to that coordinate. From then on he's genuinely
+   where you are, not a toolbar button that talks about your location. */
+function updateBeauMarker(lat, lon, accuracy) {
+  const latlng = [lat, lon];
+  if (!beauMarker) {
+    beauMarker = L.marker(latlng, {
+      icon: L.divIcon({ className: '', html: '<div class="beau-slot"></div>', iconSize: [100, 100], iconAnchor: [50, 50] }),
+      zIndexOffset: 1000
+    }).addTo(map);
+    const el = beauMarker.getElement();
+    L.DomEvent.disableClickPropagation(el);
+    L.DomEvent.disableScrollPropagation(el);
+    el.querySelector('.beau-slot').replaceWith(document.getElementById('mainBtnWrap'));
+    accuracyCircle = L.circle(latlng, { radius: accuracy || 30, color: '#22d3ee', weight: 1, fillOpacity: 0.06 }).addTo(map);
+    map.setView(latlng, 16);
   } else {
-    timerDiv.style.display = 'none';
-    stopTimer();
+    beauMarker.setLatLng(latlng);
+    accuracyCircle.setLatLng(latlng);
+    accuracyCircle.setRadius(accuracy || 30);
   }
-
-  showScreen('screen-write');
 }
 
-function startTimer(seconds, onExpire) {
-  stopTimer();
-  state.timerRemaining = seconds;
-  updateTimerUI();
-  state.timerInterval = setInterval(() => {
-    state.timerRemaining--;
-    updateTimerUI();
-    if (state.timerRemaining <= 0) {
-      stopTimer();
-      onExpire();
+function clearPoiMarkers() {
+  state.markers.forEach(m => map.removeLayer(m));
+  state.markers.clear();
+}
+
+/* Featured pins (the ones Beau actually talks about) stand out; the rest
+   are just there for spatial sense — tap one for its name, nothing more. */
+function renderMarkers(pois, featuredIds) {
+  clearPoiMarkers();
+  pois.forEach(poi => {
+    const featured = featuredIds.has(poi.id);
+    const marker = L.marker([poi.lat, poi.lon], {
+      icon: L.divIcon({ className: '', html: `<div class="poi-pin${featured ? ' featured' : ''}"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] })
+    }).addTo(map);
+    if (featured) marker.on('click', reopenReveal);
+    else marker.bindPopup(escapeHtml(poi.title));
+    state.markers.set(poi.id, marker);
+  });
+}
+
+/* =========================================================================
+   Geolocation
+   ========================================================================= */
+function getPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error('Geolocation is not available on this device.')); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve(pos.coords),
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+  });
+}
+
+function startWatch() {
+  if (state.watchId != null) return;
+  state.watchId = navigator.geolocation.watchPosition(
+    pos => onWatchTick(pos.coords),
+    err => showToast(geoErrorMessage(err), true),
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+  );
+}
+function stopWatch() {
+  if (state.watchId != null) { navigator.geolocation.clearWatch(state.watchId); state.watchId = null; }
+}
+
+function onWatchTick(coords) {
+  state.userPos = coords;
+  updateBeauMarker(coords.latitude, coords.longitude, coords.accuracy);
+  if (state.mode !== 'live') return;
+
+  const now = Date.now();
+  if (now - state.lastLiveTick < CONFIG.liveWatchMinIntervalMs) return;
+  state.lastLiveTick = now;
+
+  if (shouldRefreshLive(coords)) runLookup(coords, { live: true });
+}
+
+function shouldRefreshLive(coords) {
+  if (state.mode !== 'live') return false;
+  if (!state.lastLookup.pos) return true;
+  if (document.getElementById('mainBtnWrap').classList.contains('working')) return false;
+  const dist = haversine(state.lastLookup.pos.latitude, state.lastLookup.pos.longitude, coords.latitude, coords.longitude);
+  const elapsed = Date.now() - state.lastLookup.time;
+  return dist >= CONFIG.liveMoveThresholdMeters || elapsed >= CONFIG.liveTimeThresholdMs;
+}
+
+function geoErrorMessage(err) {
+  if (err && err.code === 1) return 'I can’t find you — turn on location and I’ll take it from there.';
+  if (err && err.code === 3) return 'Lost you for a second — try again somewhere more open.';
+  return 'I couldn’t place you just now.';
+}
+
+/* =========================================================================
+   Facts, source 1: Wikipedia geosearch + extracts + categories
+   (single combined request — real articles that carry their own coordinates)
+   ========================================================================= */
+async function fetchWikipediaNearby(lat, lon, radius) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    generator: 'geosearch',
+    ggscoord: `${lat}|${lon}`,
+    ggsradius: String(radius),
+    ggslimit: String(CONFIG.maxResultsFetched),
+    ggsnamespace: '0',
+    prop: 'extracts|coordinates|pageimages',
+    exintro: '1', explaintext: '1', exchars: '420', exlimit: 'max',
+    piprop: 'thumbnail', pithumbsize: String(CONFIG.wikiThumbSize),
+    colimit: 'max'
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) throw new Error('Wikipedia request failed (' + res.status + ')');
+  const data = await res.json();
+  const pages = (data.query && data.query.pages) ? Object.values(data.query.pages) : [];
+  return pages
+    .filter(p => p.coordinates && p.coordinates[0])
+    .map(p => ({
+      id: 'wiki-' + p.pageid,
+      pageid: p.pageid,
+      title: p.title,
+      extract: (p.extract || '').trim(),
+      image: p.thumbnail ? p.thumbnail.source : null,
+      lat: p.coordinates[0].lat,
+      lon: p.coordinates[0].lon,
+      url: 'https://en.wikipedia.org/?curid=' + p.pageid,
+      source: 'wikipedia'
+    }));
+}
+
+/* =========================================================================
+   Facts, source 2: OpenStreetMap via the Overpass API — enrichment.
+   Wikipedia only covers places notable enough for their own article, which
+   thins out fast outside city centres. OSM has vastly denser tagging
+   (historic=*, tourism=*, memorials, cafes, small shops…), so this fills
+   the gaps in quieter areas. Still real, geolocated, tagged data — never
+   invented — just thinner facts than a Wikipedia paragraph when that's all
+   OSM has to offer.
+   ========================================================================= */
+/* Deliberately narrow: this is a tour guide, not a business directory.
+   Only categories that are inherently guide-worthy on their own — a
+   history/culture reason to stop, not just "there's a shop here". No
+   cafes, restaurants, pubs, or retail: those only belong in the guide
+   when they're notable enough to have their own Wikipedia article, which
+   the Wikipedia source already handles. */
+function osmOverpassQuery(lat, lon, radius) {
+  const near = `(around:${radius},${lat},${lon})`;
+  return `[out:json][timeout:20];(
+    node["historic"]${near};
+    way["historic"]${near};
+    node["tourism"~"^(museum|artwork|gallery|attraction|viewpoint)$"]${near};
+    way["tourism"~"^(museum|artwork|gallery|attraction|viewpoint)$"]${near};
+    node["amenity"~"^(place_of_worship|theatre|cinema|arts_centre)$"]${near};
+    way["amenity"~"^(place_of_worship|theatre|cinema|arts_centre)$"]${near};
+    node["man_made"="memorial"]${near};
+  );out center tags;`;
+}
+
+/* Picks a stable-per-place phrasing so the same spot always reads the same
+   way, but different spots don't all sound like the same template. Still
+   only ever states the real tag — no invented detail, just a guide's turn
+   of phrase instead of a database dump. */
+function pickPhrase(options, seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return options[h % options.length];
+}
+
+function osmDescription(name, tags) {
+  const label = v => String(v).replace(/_/g, ' ');
+  if (tags.historic) {
+    const k = label(tags.historic);
+    return pickPhrase([
+      `${name} — a ${k}, still here.`,
+      `There's a ${k} on this spot: ${name}.`,
+      `${name}, a ${k} worth pausing for.`
+    ], name);
+  }
+  if (tags.man_made === 'memorial') {
+    return pickPhrase([
+      `A memorial here: ${name}.`,
+      `${name} — easy to walk past, worth not doing.`
+    ], name);
+  }
+  if (tags.tourism) {
+    const k = label(tags.tourism);
+    return pickPhrase([
+      `${name}, a ${k} worth a look.`,
+      `Just here: ${name}, a ${k}.`
+    ], name);
+  }
+  if (tags.amenity === 'place_of_worship') {
+    return pickPhrase([
+      `${name} stands here.`,
+      `${name} — a place of worship, right on your path.`
+    ], name);
+  }
+  if (tags.amenity) {
+    return `${name}, a ${label(tags.amenity)}.`;
+  }
+  return `${name} — worth noticing.`;
+}
+
+function parseOsmWikipediaTag(val) {
+  if (!val) return null;
+  const m = val.match(/^([a-z]{2,3}):(.+)$/i);
+  if (m) return m[1].toLowerCase() === 'en' ? m[2] : null;
+  return val;
+}
+
+async function fetchOverpassNearby(lat, lon, radius) {
+  const res = await fetch(CONFIG.overpassApi, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'data=' + encodeURIComponent(osmOverpassQuery(lat, lon, radius))
+  });
+  if (!res.ok) throw new Error('OpenStreetMap request failed (' + res.status + ')');
+  const data = await res.json();
+  const elements = (data.elements || []).filter(el => el.tags && el.tags.name);
+  return elements
+    .map(el => {
+      const point = el.type === 'node' ? el : el.center;
+      if (!point || point.lat == null || point.lon == null) return null;
+      return {
+        id: 'osm-' + el.type + '-' + el.id,
+        pageid: null,
+        title: el.tags.name,
+        extract: osmDescription(el.tags.name, el.tags),
+        lat: point.lat,
+        lon: point.lon,
+        url: `https://www.openstreetmap.org/${el.type}/${el.id}`,
+        osmWikipediaTag: el.tags.wikipedia || null,
+        osmWikidataTag: el.tags.wikidata || null,
+        source: 'osm'
+      };
+    })
+    .filter(Boolean);
+}
+
+/* Batched lookup of real Wikipedia extracts for OSM points that carry a
+   wikipedia= tag, so an OSM-discovered feature can still speak with a real
+   article's words instead of just its bare OSM tags, when one exists. */
+async function fetchWikipediaExtractsByTitle(titles) {
+  if (!titles.length) return {};
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    titles: titles.join('|'), redirects: '1',
+    prop: 'extracts|pageimages', exintro: '1', explaintext: '1', exchars: '420', exlimit: 'max',
+    piprop: 'thumbnail', pithumbsize: String(CONFIG.wikiThumbSize)
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) return {};
+  const data = await res.json();
+  if (!data.query) return {};
+  const chain = {};
+  titles.forEach(t => chain[t] = t);
+  (data.query.normalized || []).forEach(n => { for (const k in chain) if (chain[k] === n.from) chain[k] = n.to; });
+  (data.query.redirects || []).forEach(r => { for (const k in chain) if (chain[k] === r.from) chain[k] = r.to; });
+  const pagesByTitle = {};
+  Object.values(data.query.pages || {}).forEach(p => {
+    if (p.extract) pagesByTitle[p.title] = { extract: p.extract.trim(), pageid: p.pageid, image: p.thumbnail ? p.thumbnail.source : null, url: 'https://en.wikipedia.org/?curid=' + p.pageid };
+  });
+  const out = {};
+  titles.forEach(t => { const hit = pagesByTitle[chain[t]]; if (hit) out[t] = hit; });
+  return out;
+}
+
+/* Merge both sources: real Wikipedia articles plus OSM enrichment, deduped
+   so the same real-world feature doesn't show up twice, and with any
+   wikipedia-tagged OSM point upgraded to its real article extract. */
+async function fetchAllNearby(lat, lon, radius) {
+  let wikiFailed = false, osmFailed = false;
+  const [wiki, osm] = await Promise.all([
+    fetchWikipediaNearby(lat, lon, radius).catch(() => { wikiFailed = true; return []; }),
+    fetchOverpassNearby(lat, lon, radius).catch(() => { osmFailed = true; return []; })
+  ]);
+
+  const DEDUPE_METERS = 25;
+  const osmUnique = osm.filter(o => !wiki.some(w => haversine(w.lat, w.lon, o.lat, o.lon) < DEDUPE_METERS));
+
+  const titlesNeeded = [];
+  osmUnique.forEach(o => {
+    const title = parseOsmWikipediaTag(o.osmWikipediaTag);
+    if (title) { o._wikiTitle = title; titlesNeeded.push(title); }
+  });
+  if (titlesNeeded.length) {
+    const extracts = await fetchWikipediaExtractsByTitle([...new Set(titlesNeeded)]).catch(() => ({}));
+    osmUnique.forEach(o => {
+      const hit = o._wikiTitle && extracts[o._wikiTitle];
+      if (hit) { o.extract = hit.extract; o.pageid = hit.pageid; o.image = hit.image; o.url = hit.url; o.source = 'osm+wikipedia'; }
+    });
+  }
+
+  return { pois: wiki.concat(osmUnique), wikiFailed, osmFailed };
+}
+
+/* =========================================================================
+   Deep enrichment for thin OSM points — finding the actual story.
+   A bare OSM tag ("historic=memorial") isn't a story, it's a label. This
+   chases down real, retrieved facts wherever they exist online — still
+   never inventing anything — trying, in order:
+     1. Wikidata, via the OSM point's own wikidata= tag
+     2. Wikidata, found by searching its name
+     3. Wikipedia's own full-text search, for an article that exists but
+        isn't geotagged (common for institutions, colleges, etc.)
+   Whenever the resolved Wikidata item itself links to a full English
+   Wikipedia article, that article's real prose is used in preference to
+   Wikidata's one-line description. Every match is checked against the
+   OSM point's name before being trusted, so a wrong match is skipped
+   rather than shown as fact.
+   ========================================================================= */
+function normalizeName(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function namesLikelyMatch(a, b) {
+  const na = normalizeName(a), nb = normalizeName(b);
+  if (!na || !nb) return false;
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  const wa = new Set(na.split(' ').filter(w => w.length > 2));
+  const wb = new Set(nb.split(' ').filter(w => w.length > 2));
+  if (!wa.size || !wb.size) return false;
+  let overlap = 0;
+  wa.forEach(w => { if (wb.has(w)) overlap++; });
+  return overlap / Math.min(wa.size, wb.size) >= 0.6;
+}
+
+async function fetchWikidataEntity(qid) {
+  const res = await fetch(`${CONFIG.wikidataEntityData}/${qid}.json`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const entity = data.entities && data.entities[qid];
+  if (!entity) return null;
+  const enwiki = entity.sitelinks && entity.sitelinks.enwiki;
+  const description = entity.descriptions && entity.descriptions.en && entity.descriptions.en.value;
+  let year = null;
+  const inception = entity.claims && entity.claims.P571 && entity.claims.P571[0];
+  const t = inception && inception.mainsnak && inception.mainsnak.datavalue && inception.mainsnak.datavalue.value && inception.mainsnak.datavalue.value.time;
+  if (t) { const m = t.match(/^\+?(-?\d{1,5})-/); if (m) year = m[1]; }
+  return { qid, description, year, enwikiTitle: enwiki ? enwiki.title : null };
+}
+
+async function searchWikidataByName(name) {
+  const params = new URLSearchParams({ action: 'wbsearchentities', search: name, language: 'en', format: 'json', origin: '*', limit: '3', type: 'item' });
+  const res = await fetch(`${CONFIG.wikidataApi}?${params.toString()}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const match = (data.search || []).find(c => namesLikelyMatch(name, c.label));
+  return match ? match.id : null;
+}
+
+async function searchWikipediaByName(name) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    generator: 'search', gsrsearch: name, gsrlimit: '1', gsrnamespace: '0',
+    prop: 'extracts|pageimages', exintro: '1', explaintext: '1', exchars: '500', exlimit: 'max',
+    piprop: 'thumbnail', pithumbsize: String(CONFIG.wikiThumbSize)
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const page = (data.query && data.query.pages) ? Object.values(data.query.pages)[0] : null;
+  if (!page || !page.extract || !namesLikelyMatch(name, page.title)) return null;
+  return { pageid: page.pageid, extract: page.extract.trim(), image: page.thumbnail ? page.thumbnail.source : null, url: 'https://en.wikipedia.org/?curid=' + page.pageid };
+}
+
+async function applyWikidataEnrichment(poi, qid) {
+  const entity = await fetchWikidataEntity(qid).catch(() => null);
+  if (!entity) return;
+  if (entity.enwikiTitle) {
+    const extracts = await fetchWikipediaExtractsByTitle([entity.enwikiTitle]).catch(() => ({}));
+    const hit = extracts[entity.enwikiTitle];
+    if (hit) { poi.pageid = hit.pageid; poi.extract = hit.extract; poi.image = hit.image; poi.url = hit.url; poi.source = 'osm+wikidata+wikipedia'; return; }
+  }
+  if (entity.description) {
+    poi.extract = entity.year ? `${poi.title} — ${entity.description}, since ${entity.year}.` : `${poi.title} — ${entity.description}.`;
+    poi.url = `https://www.wikidata.org/wiki/${qid}`;
+    poi.source = 'osm+wikidata';
+  }
+}
+
+async function enrichThinPoi(poi) {
+  if (poi._enriched || poi.source !== 'osm') return;
+  poi._enriched = true;
+  try {
+    if (poi.osmWikidataTag) {
+      await applyWikidataEnrichment(poi, poi.osmWikidataTag);
+      if (poi.source !== 'osm') return;
     }
-  }, 1000);
+    const foundQid = await searchWikidataByName(poi.title).catch(() => null);
+    if (foundQid) {
+      await applyWikidataEnrichment(poi, foundQid);
+      if (poi.source !== 'osm') return;
+    }
+    const hit = await searchWikipediaByName(poi.title).catch(() => null);
+    if (hit) { poi.pageid = hit.pageid; poi.extract = hit.extract; poi.image = hit.image; poi.url = hit.url; poi.source = 'osm+wikipedia-search'; }
+  } catch (e) { /* keep the existing tour-guide-phrased fallback */ }
 }
 
-function stopTimer() {
-  if (state.timerInterval) {
-    clearInterval(state.timerInterval);
-    state.timerInterval = null;
-  }
-}
+/* =========================================================================
+   Narration layer — the swappable seam.
+   Keyless default: returns the real extract, verbatim (truth only).
+   If CONFIG.narrationEndpoint is set, POSTs the same real facts to a proxy
+   that can turn them into persona-voiced copy, and falls back to the plain
+   extract on any failure so the app never blocks on the network call.
+   ========================================================================= */
+/* Sends every place in this stop to Beau in one call and gets back ONE
+   continuous narrative weaving them together — never per-place remarks
+   glued together client-side, which is what made this read like a
+   gazetteer. See worker/src/index.ts for the actual writing instructions. */
+async function narrateMany(pois, persona, opts) {
+  opts = opts || {};
+  const full = !!opts.full;
+  const facts = pois.map(p => ({
+    title: p.title,
+    extract: (full && p.fullExtract ? p.fullExtract : p.extract) || '',
+    distanceMeters: Math.round(p.distance),
+    compass: p.compass
+  }));
 
-function updateTimerUI() {
-  const pct = (state.timerRemaining / state.timerSeconds) * 100;
-  $('timer-text').textContent = state.timerRemaining;
-  const bar = $('timer-bar');
-  bar.style.width = pct + '%';
-  bar.classList.toggle('warning', state.timerRemaining <= 10);
-}
-
-function submitDefinition(forced = false) {
-  const text = $('def-input').value.trim();
-  if (!text && !forced) { notify('Please write a definition.'); return; }
-  stopTimer();
-
-  state.definitions.push({
-    playerId: state.writePlayerIndex,
-    text: text || '(no answer)',
-    isReal: false,
-  });
-
-  state.writePlayerIndex++;
-  if (state.writePlayerIndex < state.players.length) {
-    showPassScreen();
-  } else {
-    beginVotingPhase();
-  }
-}
-
-// ================================================================
-//  VOTING PHASE
-// ================================================================
-function beginVotingPhase() {
-  // Build shuffled definition list including the real one
-  const realDef = {
-    playerId: -1,
-    text: state.currentWord.definition,
-    isReal: true,
-  };
-  state.shuffledDefs = shuffle([...state.definitions, realDef]);
-  showVotePassScreen();
-}
-
-function showVotePassScreen() {
-  const player = state.players[state.votePlayerIndex];
-  $('vote-pass-player-name').textContent = player.name;
-  showScreen('screen-vote-pass');
-}
-
-function startPlayerVote() {
-  const player = state.players[state.votePlayerIndex];
-  const word = state.currentWord;
-
-  $('vote-round-badge').textContent = `Round ${state.currentRound} of ${state.rounds}`;
-  $('vote-word-display').textContent = word.word;
-  $('vote-player-label').textContent = player.name;
-  $('vote-btn').disabled = true;
-
-  const list = $('vote-list');
-  list.innerHTML = '';
-
-  state.shuffledDefs.forEach((def, i) => {
-    const slip = document.createElement('div');
-    slip.className = 'vote-slip';
-    slip.setAttribute('data-letter', LETTERS[i]);
-
-    // Prevent voting for own definition
-    const isOwn = !def.isReal && def.playerId === state.votePlayerIndex;
-    if (isOwn) slip.classList.add('disabled');
-
-    slip.innerHTML = `<span class="slip-text">${escHtml(def.text)}</span>`;
-
-    if (!isOwn) {
-      slip.addEventListener('click', () => {
-        list.querySelectorAll('.vote-slip').forEach(s => s.classList.remove('selected'));
-        slip.classList.add('selected');
-        slip.dataset.chosenIndex = i;
-        $('vote-btn').disabled = false;
-        $('vote-btn').dataset.choice = i;
+  if (CONFIG.narrationEndpoint) {
+    try {
+      const res = await fetch(CONFIG.narrationEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          persona: persona.id === 'custom' ? { id: 'custom', description: state.customPersonaText } : { id: persona.id, name: persona.name },
+          facts,
+          full
+        })
       });
-    }
-    list.appendChild(slip);
-  });
-
-  showScreen('screen-vote');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.narration) return data.narration;
+      }
+    } catch (e) { /* fall through to keyless passthrough */ }
+  }
+  // Keyless / offline fallback: plain facts, no invented framing.
+  return facts.map(f => `${f.title}. ${shortFact(f.extract, full ? 320 : 130)}`).join('\n\n') || 'No description available for this place yet.';
 }
 
-function submitVote() {
-  const choice = parseInt($('vote-btn').dataset.choice);
-  if (isNaN(choice)) return;
-  state.votes[state.votePlayerIndex] = choice;
-
-  state.votePlayerIndex++;
-  if (state.votePlayerIndex < state.players.length) {
-    showVotePassScreen();
-  } else {
-    showResults();
+/* A free-typed or chip-picked follow-up question, answered from the exact
+   same retrieved facts already on screen — never a fresh web lookup, so
+   the truth/charm boundary holds here too. Requires the narration proxy;
+   there's no sensible keyless answer to an arbitrary question. */
+async function askQuestion(pois, persona, question) {
+  if (!CONFIG.narrationEndpoint) return null;
+  const facts = pois.map(p => ({
+    title: p.title,
+    extract: (p.fullExtract || p.extract) || '',
+    distanceMeters: Math.round(p.distance),
+    compass: p.compass
+  }));
+  try {
+    const res = await fetch(CONFIG.narrationEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        persona: persona.id === 'custom' ? { id: 'custom', description: state.customPersonaText } : { id: persona.id, name: persona.name },
+        facts,
+        question
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data && data.narration) || null;
+  } catch (e) {
+    return null;
   }
 }
 
-// ================================================================
-//  RESULTS
-// ================================================================
-function showResults() {
-  // Calculate scores
-  const roundDeltas = state.players.map(() => 0);
+function currentPersona() {
+  return CONFIG.personas.find(p => p.id === state.personaId) || CONFIG.personas[0];
+}
 
-  state.players.forEach((_, pid) => {
-    const choiceIdx = state.votes[pid];
-    if (choiceIdx === undefined) return;
-    const chosen = state.shuffledDefs[choiceIdx];
-    if (chosen.isReal) {
-      roundDeltas[pid] += 1; // guessed correctly
+/* Splits the model's trailing "Q: ..." block (three suggested follow-up
+   questions, one per line) off of the main text, so it can drive the
+   tap-to-ask chips instead of being displayed as passage content. */
+function splitFollowups(text) {
+  const parts = String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return { body: '', questions: [] };
+  const last = parts[parts.length - 1];
+  const lines = last.split('\n').map(l => l.trim()).filter(Boolean);
+  // Tolerant of format drift ("Q:", "Q1:", "1.", "- ", or just a bare
+  // question ending in "?") since this is model output, not a fixed
+  // wire format: a block only counts if every line in it is a question.
+  const stripPrefix = l => l.replace(/^(?:Q\s*\d*[:.)]|[-*•]|\d+[.):])\s*/i, '').trim();
+  const isQuestionBlock = lines.length >= 2 && lines.every(l => /\?\s*$/.test(l));
+  if (!isQuestionBlock) return { body: parts.join('\n\n'), questions: [] };
+  const questions = lines.map(stripPrefix).filter(Boolean);
+  return { body: parts.slice(0, -1).join('\n\n'), questions };
+}
+
+/* Strips the model's own newlines/formatting down to something natural for
+   speechSynthesis: the "NEXT:" tag read out loud would sound broken, and
+   paragraph breaks should read as pauses, not literal text. */
+function speechTextFrom(text) {
+  return String(text || '').replace(/\bNEXT:\s*/gi, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/* Renders narration text as real paragraph blocks, each prefixed with a
+   small icon guessed from that paragraph's own content, not from a
+   1:1 mapping to POIs, so it stays correct even if the model doesn't
+   split its paragraphs exactly along place boundaries. If the model
+   followed the closing-instruction format, the last paragraph (starting
+   "NEXT:") is rendered as a distinct "what to do now" line with its own
+   icon and the tag stripped. Falls back to a single untagged paragraph
+   if the text doesn't parse into blocks at all. */
+/* Splits on sentence boundaries (., !, ?) rather than just words, so a
+   forced break never lands mid-sentence. */
+function splitIntoSentences(text) {
+  const matches = text.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [text];
+  return matches.map(s => s.trim()).filter(Boolean);
+}
+
+/* The model is asked to write in paragraphs, but won't always do it,
+   especially for a short passage about one place. If it hands back a
+   single block with enough sentences to actually read as two thoughts,
+   split it at the midpoint sentence rather than showing one dense
+   block — a real paragraph break should always be visible, not just
+   requested. */
+function ensureParagraphBreaks(parts) {
+  if (parts.length !== 1) return parts;
+  const sentences = splitIntoSentences(parts[0]);
+  if (sentences.length < 3) return parts;
+  const mid = Math.ceil(sentences.length / 2);
+  return [sentences.slice(0, mid).join(' '), sentences.slice(mid).join(' ')];
+}
+
+function renderPassageBlock(container, text) {
+  container.innerHTML = '';
+  const parts = String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return;
+
+  let nextLine = null;
+  let storyParts = parts;
+  if (/^NEXT:/i.test(parts[parts.length - 1])) {
+    nextLine = parts[parts.length - 1].replace(/^NEXT:\s*/i, '');
+    storyParts = parts.slice(0, -1);
+  }
+  if (!storyParts.length) storyParts = nextLine ? [] : parts;
+  storyParts = ensureParagraphBreaks(storyParts);
+
+  storyParts.forEach(p => {
+    const type = detectPlaceType({ title: '', extract: p });
+    const row = document.createElement('div');
+    row.className = 'passage-para';
+    row.innerHTML = `<span class="para-icon">${TYPE_ICONS[type]}</span><p>${escapeHtml(p)}</p>`;
+    container.appendChild(row);
+  });
+
+  if (nextLine) {
+    const row = document.createElement('div');
+    row.className = 'passage-para passage-next';
+    row.innerHTML = `<span class="para-icon">${TYPE_ICONS.direction}</span><p>${escapeHtml(nextLine)}</p>`;
+    container.appendChild(row);
+  }
+}
+
+/* Real photos, one per narrated place that actually had a Wikipedia
+   thumbnail (fetched alongside its extract, never a separate lookup and
+   never generated). Places without one just don't get a thumbnail; the
+   row collapses to nothing if none of them did. */
+function renderPassageImages(container, pois) {
+  container.innerHTML = '';
+  pois.filter(p => p.image).forEach(p => {
+    const fig = document.createElement('button');
+    fig.type = 'button';
+    fig.className = 'passage-image';
+    const img = document.createElement('img');
+    img.src = p.image;
+    img.alt = p.title;
+    img.loading = 'lazy';
+    img.referrerPolicy = 'no-referrer';
+    img.onerror = () => fig.remove();
+    const cap = document.createElement('span');
+    cap.textContent = p.title;
+    fig.appendChild(img);
+    fig.appendChild(cap);
+    fig.addEventListener('click', () => openArticleFresh(p));
+    container.appendChild(fig);
+  });
+}
+
+/* The ask box (typed question) only needs a narration proxy to answer
+   into, not any particular response shape, so it's shown/hidden on its
+   own — independent of whether Beau's own suggested chips parsed out
+   of this particular response. Call once a passage exists. */
+function showFollowupBox() {
+  document.getElementById('followups').hidden = !CONFIG.narrationEndpoint;
+}
+
+/* Renders up to 3 tap-to-ask chips (Beau's own suggested follow-ups for
+   this passage). Just leaves the chip row empty if nothing was
+   suggested or didn't parse; the ask box above it stays up regardless,
+   see showFollowupBox(). */
+function renderFollowupChips(questions) {
+  const chipsEl = document.getElementById('followupChips');
+  chipsEl.innerHTML = '';
+  if (!CONFIG.narrationEndpoint || !questions || !questions.length) return;
+  questions.slice(0, 3).forEach(q => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'followup-chip';
+    btn.textContent = q;
+    btn.addEventListener('click', () => askFollowup(q));
+    chipsEl.appendChild(btn);
+  });
+}
+
+/* Handles both a tapped chip and a typed custom question: answers it from
+   the same facts already backing the current passage, shows the answer
+   inline, then refreshes the chips with whatever Beau suggests next. */
+async function askFollowup(question) {
+  const q = (question || '').trim();
+  const pois = state.passagePois;
+  if (!q || !pois.length) return;
+
+  const answerEl = document.getElementById('followupAnswer');
+  const persona = currentPersona();
+  answerEl.hidden = false;
+  answerEl.innerHTML = '<p class="followup-loading">Beau is thinking…</p>';
+  // The panel scrolls internally and the answer renders below the ask box,
+  // so without this it can silently land off-screen and look like nothing
+  // happened.
+  answerEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const raw = await askQuestion(pois, persona, q);
+  if (!raw) {
+    answerEl.innerHTML = '<p class="followup-loading">Couldn’t get an answer just now.</p>';
+    return;
+  }
+  const { body: answer, questions } = splitFollowups(raw);
+  renderPassageBlock(answerEl, answer);
+  answerEl.dataset.spoken = speechTextFrom(answer);
+  if (state.voiceOn) speak(answerEl.dataset.spoken, persona);
+  if (questions.length) renderFollowupChips(questions);
+}
+
+/* =========================================================================
+   Lookup pipeline
+   ========================================================================= */
+async function doSingleLookup() {
+  if (state.mode === 'working') return;
+  setMode('working');
+  try {
+    const coords = await getPosition();
+    state.userPos = coords;
+    updateBeauMarker(coords.latitude, coords.longitude, coords.accuracy);
+    await runLookup(coords, { live: false });
+  } catch (err) {
+    showToast(err.message || geoErrorMessage(err), true);
+  } finally {
+    if (state.mode === 'working') setMode('idle');
+  }
+}
+
+function toggleLiveOn() {
+  if (state.mode === 'live') return;
+  setMode('live');
+  startWatch();
+  getPosition().then(coords => {
+    state.userPos = coords;
+    updateBeauMarker(coords.latitude, coords.longitude, coords.accuracy);
+    runLookup(coords, { live: true });
+  }).catch(err => showToast(err.message || geoErrorMessage(err), true));
+}
+
+function stopLiveMode() {
+  stopWatch();
+  setMode('idle');
+}
+
+async function runLookup(coords, opts) {
+  const wasWorkingBefore = state.mode === 'working';
+  if (opts.live && !wasWorkingBefore) markWorkingOverlay(true);
+
+  const key = roundCoordKey(coords.latitude, coords.longitude);
+  let pois;
+  let usedRadius = CONFIG.radiusMeters;
+  try {
+    if (state.cache.has(key)) {
+      pois = state.cache.get(key);
     } else {
-      roundDeltas[chosen.playerId] += 1; // fooled someone
+      let result = await fetchAllNearby(coords.latitude, coords.longitude, usedRadius);
+      const bothFailed = result.wikiFailed && result.osmFailed;
+      if (result.pois.length === 0 && !bothFailed && usedRadius < CONFIG.maxRadiusMeters) {
+        const widened = Math.min(Math.round(usedRadius * 3), CONFIG.maxRadiusMeters);
+        showToast(`Nothing within ${usedRadius}m — let me look a little further…`);
+        result = await fetchAllNearby(coords.latitude, coords.longitude, widened);
+        usedRadius = widened;
+      }
+      if (result.pois.length === 0 && result.wikiFailed && result.osmFailed) throw new Error('network');
+
+      pois = result.pois.map(p => {
+        const distance = haversine(coords.latitude, coords.longitude, p.lat, p.lon);
+        const b = bearing(coords.latitude, coords.longitude, p.lat, p.lon);
+        return Object.assign(p, { distance, bearingDeg: b, compass: compassLabel(b) });
+      }).sort((a, b) => a.distance - b.distance);
+      state.cache.set(key, pois);
     }
-  });
+  } catch (err) {
+    showToast('I couldn’t reach anything out there — check your connection.', true);
+    if (opts.live) markWorkingOverlay(false);
+    return;
+  }
 
-  roundDeltas.forEach((d, i) => { state.players[i].score += d; });
+  state.lastLookup = { pos: coords, time: Date.now() };
 
-  // Build results display
-  $('results-round-badge').textContent = `Round ${state.currentRound} of ${state.rounds}`;
-  $('results-word-display').textContent = state.currentWord.word;
+  const shown = pois.slice(0, CONFIG.maxResultsShown);
+  state.currentPois = shown;
+  const featuredIds = new Set(shown.slice(0, CONFIG.maxAutoNarrated).map(p => p.id));
 
-  const resultsList = $('results-list');
-  resultsList.innerHTML = '';
+  renderMarkers(shown, featuredIds);
+  const persona = currentPersona();
+  await renderPassage(shown, persona);
 
-  state.shuffledDefs.forEach((def, i) => {
-    const votedByNames = state.players
-      .filter((_, pid) => state.votes[pid] === i)
-      .map(p => p.name);
-
-    const slip = document.createElement('div');
-    slip.className = 'result-slip' + (def.isReal ? ' real' : '');
-    slip.innerHTML = `
-      <span class="slip-letter">${LETTERS[i]}</span>
-      <p class="slip-text">${escHtml(def.text)}</p>
-      <div class="slip-meta">
-        ${def.isReal
-          ? `<span class="author-tag correct-badge">REAL DEFINITION</span>`
-          : `<span class="author-tag">${escHtml(state.players[def.playerId].name)}</span>`
-        }
-        ${votedByNames.length
-          ? votedByNames.map(n =>
-              def.isReal
-                ? `<span class="correct-badge">${escHtml(n)} ✓</span>`
-                : `<span class="fooled-badge">fooled ${escHtml(n)}</span>`
-            ).join('')
-          : ''
-        }
-      </div>
-    `;
-    resultsList.appendChild(slip);
-  });
-
-  // Render running scores
-  renderScoreList('results-scores', roundDeltas);
-
-  $('next-round-btn').textContent =
-    state.currentRound < state.rounds ? 'Next Round →' : 'Final Scores →';
-
-  showScreen('screen-results');
-}
-
-function renderScoreList(elId, deltas) {
-  const el = $(elId);
-  el.innerHTML = '';
-  const sorted = [...state.players]
-    .map((p, i) => ({ ...p, idx: i, delta: deltas ? deltas[i] : 0 }))
-    .sort((a, b) => b.score - a.score);
-
-  sorted.forEach((p, rank) => {
-    const li = document.createElement('li');
-    li.className = 'score-row';
-    const deltaText = deltas && p.delta !== 0
-      ? `<span class="score-delta positive">+${p.delta}</span>`
-      : deltas ? `<span class="score-delta">+0</span>` : '';
-    li.innerHTML = `
-      <span class="score-rank">${rank + 1}.</span>
-      <span class="score-name">${escHtml(p.name)}</span>
-      ${deltaText}
-      <span class="score-pts">${p.score}</span>
-    `;
-    el.appendChild(li);
-  });
-}
-
-// ================================================================
-//  NEXT ROUND / FINAL
-// ================================================================
-function nextRound() {
-  if (state.currentRound < state.rounds) {
-    startRound();
+  if (shown.length) {
+    logJournalEntry(coords, state.passagePois);
   } else {
-    showFinalScreen();
+    const idleHint = document.getElementById('idleHint');
+    idleHint.hidden = false;
+    idleHint.textContent = `I’ve got nothing within ${usedRadius}m. Move a little, or widen how far I look, in Settings.`;
+  }
+
+  if (opts.live) markWorkingOverlay(false);
+}
+
+function markWorkingOverlay(on) {
+  const wrap = document.getElementById('mainBtnWrap');
+  if (on) { wrap.classList.add('working'); } else if (state.mode === 'live') { wrap.classList.remove('working'); }
+}
+
+/* =========================================================================
+   Passage — one continuous block of text, not a list. Beau is handed
+   every nearby place's real facts in a single call and writes one
+   flowing live-tour-guide narrative weaving them together — the model
+   decides how (or whether) to move between places and mention where
+   they are; nothing here glues per-place fragments together with a
+   templated connector, which is what used to make it read like a
+   gazetteer entry. Everything found still gets a pin on the map (so the
+   spatial picture is complete), but only the places actually in the
+   passage get a name in either the text or the audio — the rest are
+   tap-a-pin-for-its-name only. See CONFIG.maxAutoNarrated for the cap
+   that keeps this short.
+   ========================================================================= */
+async function renderPassage(pois, persona) {
+  const idleHint = document.getElementById('idleHint');
+
+  cancelSpeech();
+  state.passagePois = [];
+  state.articleHistory = [];
+  state.lastArticlePoi = null;
+
+  if (!pois.length) {
+    idleHint.hidden = false;
+    return;
+  }
+  idleHint.hidden = true;
+
+  // Chase down real stories for thin OSM points before writing anything —
+  // in parallel, so it costs wall-clock time once, not once per place.
+  const narrated = pois.slice(0, CONFIG.maxAutoNarrated);
+  await Promise.all(narrated.filter(p => p.source === 'osm').map(enrichThinPoi));
+
+  const raw = await narrateMany(narrated, persona, { full: false });
+  const { body: passage, questions } = splitFollowups(raw);
+  state.passagePois = narrated;
+
+  const theme = themeFor(narrated);
+
+  document.getElementById('revealIcons').innerHTML = theme.icons;
+  document.getElementById('revealSummary').textContent = theme.summary;
+  renderPassageImages(document.getElementById('revealImages'), narrated);
+  const textEl = document.getElementById('revealText');
+  renderPassageBlock(textEl, passage);
+  textEl.dataset.spoken = speechTextFrom(passage);
+  document.getElementById('revealSources').innerHTML = sourceLineFor(narrated);
+
+  const answerEl = document.getElementById('followupAnswer');
+  answerEl.hidden = true;
+  answerEl.innerHTML = '';
+  document.getElementById('followupInput').value = '';
+  showFollowupBox();
+  renderFollowupChips(questions);
+
+  showReveal();
+  if (state.voiceOn) speak(textEl.dataset.spoken, persona);
+}
+
+/* The reveal blooms open from wherever Beau currently sits on screen —
+   fixed control column pre-fix, a real map marker after — by measuring
+   his position and the panel's natural (untransformed) size, then
+   setting transform-origin to that exact point before animating in. */
+function showReveal() {
+  const backdrop = document.getElementById('revealBackdrop');
+  const panel = document.getElementById('revealPanel');
+  const beauWrap = document.getElementById('mainBtnWrap');
+
+  backdrop.classList.remove('visible');
+  panel.classList.remove('shown');
+  backdrop.classList.add('open');
+
+  panel.style.transition = 'none';
+  panel.style.transform = 'scale(1)';
+  const beauRect = beauWrap.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  const originX = panelRect.width ? ((beauRect.left + beauRect.width / 2 - panelRect.left) / panelRect.width) * 100 : 50;
+  const originY = panelRect.height ? ((beauRect.top + beauRect.height / 2 - panelRect.top) / panelRect.height) * 100 : 50;
+  panel.style.transformOrigin = `${originX}% ${originY}%`;
+  panel.style.transform = '';
+  void panel.offsetWidth; // force reflow so the reset registers before re-enabling the transition
+  panel.style.transition = '';
+
+  requestAnimationFrame(() => {
+    backdrop.classList.add('visible');
+    panel.classList.add('shown');
+  });
+}
+function hideReveal() {
+  document.getElementById('revealBackdrop').classList.remove('visible');
+  document.getElementById('revealPanel').classList.remove('shown');
+  setTimeout(() => document.getElementById('revealBackdrop').classList.remove('open'), 500);
+}
+function reopenReveal() {
+  if (state.passagePois.length) showReveal();
+}
+
+/* A short, complete-sounding fact — never a mid-word ellipsis trail-off.
+   Prefers the first sentence if it's already short; otherwise cuts at the
+   last clean clause break (comma/semicolon) or, failing that, the last
+   whole word, and always closes with a period so it reads as finished,
+   not cut off. */
+function shortFact(text, targetChars) {
+  if (!text) return '';
+  const clean = text.trim();
+  const m = clean.match(/^.{1,}?[.!?](?=\s|$)/);
+  const candidate = m ? m[0].trim() : clean;
+  if (candidate.length <= targetChars) return candidate;
+  const window = candidate.slice(0, targetChars);
+  const lastBreak = Math.max(window.lastIndexOf(','), window.lastIndexOf(';'));
+  if (lastBreak > targetChars * 0.4) return window.slice(0, lastBreak).trim() + '.';
+  const lastSpace = window.lastIndexOf(' ');
+  return (lastSpace > targetChars * 0.4 ? window.slice(0, lastSpace) : window).trim() + '.';
+}
+
+/* Small "Sources: X · Y" credit line for whatever's actually in the
+   current passage — always shown, no button needed to reveal it. */
+function sourceLineFor(pois) {
+  if (!pois.length) return '';
+  const links = pois.map(p => {
+    const label = p.pageid ? 'Wikipedia' : (p.source && p.source.includes('wikidata') ? 'Wikidata' : 'OpenStreetMap');
+    return `<a href="${p.url}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a> (${label})`;
+  }).join(' · ');
+  return `Sources: ${links}`;
+}
+
+function onRevealSpeak() {
+  cancelSpeech();
+  const persona = currentPersona();
+  speak(document.getElementById('revealText').dataset.spoken, persona);
+}
+
+/* =========================================================================
+   Speech synthesis
+   ========================================================================= */
+function speak(text, persona) {
+  if (!('speechSynthesis' in window) || !text) return;
+  const u = new SpeechSynthesisUtterance(text);
+  const v = persona.voice || { rate: 1, pitch: 1 };
+  u.rate = v.rate; u.pitch = v.pitch;
+  window.speechSynthesis.speak(u);
+}
+function cancelSpeech() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+/* =========================================================================
+   Button / mode control
+   ========================================================================= */
+function setMode(mode) {
+  state.mode = mode;
+  const wrap = document.getElementById('mainBtnWrap');
+  const icon = document.getElementById('mainBtnIcon');
+  const label = document.getElementById('mainBtnLabel');
+  const status = document.getElementById('statusLine');
+  wrap.classList.remove('idle', 'working', 'live');
+  wrap.classList.add(mode);
+
+  if (mode === 'idle') {
+    icon.innerHTML = ICONS.idle; label.textContent = CONFIG.buttonName;
+    status.textContent = `Tap, and I’ll tell you what’s near. Hold, and I’ll stay.`;
+    status.classList.remove('err');
+  } else if (mode === 'working') {
+    icon.innerHTML = ICONS.working; label.textContent = CONFIG.buttonNameWorking;
+    status.textContent = 'Give me a second…';
+  } else if (mode === 'live') {
+    icon.innerHTML = ICONS.live; label.textContent = CONFIG.buttonNameLive;
+    status.textContent = 'I’m with you. Tap to let go.';
   }
 }
 
-function showFinalScreen() {
-  const sorted = [...state.players].sort((a, b) => b.score - a.score);
-  const winner = sorted[0];
-
-  $('winner-name-display').textContent = winner.name;
-  renderScoreList('final-scores', null);
-  showScreen('screen-final');
+function showToast(msg, isErr, durationMs) {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = 'toast' + (isErr ? ' err' : '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), durationMs || 4200);
+  if (isErr) {
+    const status = document.getElementById('statusLine');
+    status.textContent = msg;
+    status.classList.add('err');
+  }
 }
 
-function resetGame() {
-  state.players.forEach(p => p.score = 0);
-  state.currentRound = 0;
-  showScreen('screen-setup');
-  renderPlayerList();
+function setupMainButton() {
+  const btn = document.getElementById('mainBtn');
+  let pressTimer = null;
+  let longPressFired = false;
+  const LONG_PRESS_MS = 550;
+
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    longPressFired = false;
+    pressTimer = setTimeout(() => {
+      longPressFired = true;
+      if (state.mode !== 'live') toggleLiveOn();
+    }, LONG_PRESS_MS);
+  });
+
+  const clear = () => { clearTimeout(pressTimer); };
+  btn.addEventListener('pointerup', () => {
+    clear();
+    if (longPressFired) return;
+    if (state.mode === 'live') stopLiveMode();
+    else if (state.mode === 'idle') doSingleLookup();
+  });
+  btn.addEventListener('pointercancel', clear);
+  btn.addEventListener('pointerleave', clear);
 }
 
-// ================================================================
-//  HELPERS
-// ================================================================
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+/* =========================================================================
+   Sheet
+   ========================================================================= */
+function setupReveal() {
+  const backdrop = document.getElementById('revealBackdrop');
+  document.getElementById('revealClose').addEventListener('click', hideReveal);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) hideReveal(); });
+  document.getElementById('revealSpeakBtn').addEventListener('click', onRevealSpeak);
+
+  document.getElementById('followupForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const input = document.getElementById('followupInput');
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+    askFollowup(q);
+  });
 }
+
+/* Drag-down-to-dismiss for a bottom sheet. Only engages when the sheet is
+   already scrolled to its top (so it never fights normal scrolling of
+   long content) — from there, dragging down follows the finger, and
+   releasing past a small threshold closes it; anything short of that
+   snaps back. */
+function enableSwipeToDismiss(sheet, onClose) {
+  let startY = null;
+  let dy = 0;
+
+  sheet.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1 || sheet.scrollTop > 0) { startY = null; return; }
+    startY = e.touches[0].clientY;
+    dy = 0;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+
+  sheet.addEventListener('touchmove', e => {
+    if (startY == null) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy < 0) dy = 0;
+    sheet.style.transform = dy ? `translateY(${dy}px)` : '';
+  }, { passive: true });
+
+  sheet.addEventListener('touchend', () => {
+    if (startY == null) return;
+    sheet.style.transition = '';
+    sheet.style.transform = '';
+    if (dy > 90) onClose();
+    startY = null;
+    dy = 0;
+  });
+}
+
+/* =========================================================================
+   Article modal — Beau's own fuller write-up of a single place, opened by
+   tapping its photo. Written from a fuller real extract when one exists
+   (fetchFullExtract), same truth/charm rule as everywhere else: only the
+   real retrieved text, Beau just narrates it in his own words.
+   ========================================================================= */
+async function fetchFullExtract(pageid) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    pageids: String(pageid),
+    prop: 'extracts', explaintext: '1', exchars: '2000'
+  });
+  const res = await fetch(`${CONFIG.wikipediaApi}?${params.toString()}`);
+  if (!res.ok) throw new Error('Wikipedia request failed');
+  const data = await res.json();
+  const page = data.query && data.query.pages && Object.values(data.query.pages)[0];
+  return page ? (page.extract || '').trim() : '';
+}
+
+/* index is omitted when opening fresh from a tapped photo: the browsable
+   set becomes whatever this lookup found (state.currentPois, nearest
+   first), positioned at whichever place was tapped. Passed explicitly by
+   nextArticle/prevArticle when paging through that same set. */
+async function openArticle(poi, index) {
+  const backdrop = document.getElementById('articleBackdrop');
+  const hero = document.getElementById('articleHero');
+  const body = document.getElementById('articleBody');
+  const sourceEl = document.getElementById('articleSource');
+  const navEl = document.getElementById('articleNav');
+
+  if (index == null) {
+    state.articlePois = state.currentPois.length ? state.currentPois : [poi];
+    index = state.articlePois.findIndex(p => p.id === poi.id);
+    if (index === -1) { state.articlePois = [poi]; index = 0; }
+  }
+  state.articleIndex = index;
+  state.lastArticlePoi = poi;
+
+  document.getElementById('articleTitle').textContent = poi.title;
+  document.getElementById('articleMeta').textContent = `${Math.round(poi.distance)}m to the ${poi.compass}`;
+  navEl.innerHTML = `${TYPE_ICONS.direction}<span>${index + 1} of ${state.articlePois.length} nearby &middot; swipe to explore</span>`;
+  if (poi.image) { hero.src = poi.image; hero.alt = poi.title; hero.hidden = false; }
+  else { hero.hidden = true; }
+  body.innerHTML = '<p class="article-loading">Beau is writing this one up…</p>';
+  sourceEl.innerHTML = '';
+  backdrop.classList.add('open');
+
+  try {
+    if (poi.pageid && !poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid).catch(() => poi.extract);
+    else if (!poi.fullExtract) poi.fullExtract = poi.extract;
+
+    const persona = currentPersona();
+    const raw = await narrateMany([poi], persona, { full: true });
+    const { body: article } = splitFollowups(raw);
+    renderPassageBlock(body, article);
+    const label = poi.pageid ? 'Wikipedia' : (poi.source && poi.source.includes('wikidata') ? 'Wikidata' : 'OpenStreetMap');
+    sourceEl.innerHTML = `Source: <a href="${poi.url}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
+  } catch (err) {
+    body.innerHTML = '<p class="article-loading">Couldn’t write this one up right now.</p>';
+  }
+}
+
+/* Browsing forward walks state.articlePois outward (it's already sorted
+   nearest-first from the lookup that found it) — "whatever's closest you
+   haven't looked at yet", not a fixed ring. Backward retraces what's
+   already been seen. Both just stop at the ends of what's actually been
+   discovered rather than wrapping or fetching further. */
+function articleAt(index) {
+  if (index < 0) { showToast('Nothing closer behind you.'); return; }
+  if (index >= state.articlePois.length) { showToast('That’s everything found nearby for now.'); return; }
+  openArticle(state.articlePois[index], index);
+}
+function nextArticle() { articleAt(state.articleIndex + 1); }
+function prevArticle() { articleAt(state.articleIndex - 1); }
+
+/* Entry point for tapping a photo (as opposed to swiping within an
+   already-open article). If a different article was already open, it's
+   pushed onto state.articleHistory first, so closing steps back to it
+   instead of dropping straight to the passage panel — a real "you were
+   reading X before you opened Y" breadcrumb. Swiping never pushes here:
+   that's lateral browsing of the same list, already reversible by
+   swiping the other way. */
+function openArticleFresh(poi) {
+  if (state.lastArticlePoi && state.lastArticlePoi.id !== poi.id) {
+    state.articleHistory.push(state.lastArticlePoi);
+  }
+  openArticle(poi);
+}
+
+/* Every dismissal (X, backdrop tap, swipe down) goes through here: step
+   back to whatever article was open before this one, if anything, and
+   only actually close the modal once that history is exhausted. */
+function articleBack() {
+  const prev = state.articleHistory.pop();
+  if (!prev) {
+    document.getElementById('articleBackdrop').classList.remove('open');
+    return;
+  }
+  const idx = state.articlePois.findIndex(p => p.id === prev.id);
+  openArticle(prev, idx === -1 ? undefined : idx);
+}
+
+/* One combined gesture handler for the article sheet: a mostly-vertical
+   drag (from the sheet's own scroll top, so it never fights scrolling
+   longer articles) dismisses it like any other bottom sheet; a
+   mostly-horizontal drag pages to the next/previous nearby place instead.
+   Axis is locked in once the drag clears a small deadzone, so a diagonal
+   start doesn't do both at once. */
+function enableArticleGestures(sheet, { onDismiss, onNext, onPrev }) {
+  let startX = null, startY = null, axis = null, dx = 0, dy = 0;
+
+  sheet.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { startX = null; return; }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    axis = null; dx = 0; dy = 0;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+
+  sheet.addEventListener('touchmove', e => {
+    if (startX == null) return;
+    dx = e.touches[0].clientX - startX;
+    dy = e.touches[0].clientY - startY;
+    if (!axis) {
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    }
+    if (axis === 'y') {
+      if (sheet.scrollTop > 0 || dy < 0) { sheet.style.transform = ''; return; }
+      sheet.style.transform = `translateY(${dy}px)`;
+    } else {
+      sheet.style.transform = `translateX(${dx}px)`;
+    }
+  }, { passive: true });
+
+  sheet.addEventListener('touchend', () => {
+    if (startX == null) return;
+    sheet.style.transition = '';
+    sheet.style.transform = '';
+    if (axis === 'y' && dy > 90) onDismiss();
+    else if (axis === 'x' && dx > 80) onNext();
+    else if (axis === 'x' && dx < -80) onPrev();
+    startX = null; startY = null; axis = null; dx = 0; dy = 0;
+  });
+}
+
+function setupArticleModal() {
+  const backdrop = document.getElementById('articleBackdrop');
+  document.getElementById('articleClose').addEventListener('click', articleBack);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) articleBack(); });
+  enableArticleGestures(backdrop.querySelector('.modal'), {
+    onDismiss: articleBack,
+    onNext: nextArticle,
+    onPrev: prevArticle
+  });
+}
+
+/* =========================================================================
+   Settings modal
+   ========================================================================= */
+function renderPersonaList() {
+  const wrap = document.getElementById('personaList');
+  wrap.innerHTML = '';
+  CONFIG.personas.forEach(p => {
+    const opt = document.createElement('label');
+    opt.className = 'persona-opt' + (state.personaId === p.id ? ' sel' : '');
+    opt.innerHTML = `
+      <input type="radio" name="persona" value="${p.id}" ${state.personaId === p.id ? 'checked' : ''}>
+      <div><div class="p-name">${escapeHtml(p.name)}</div><div class="p-desc">${escapeHtml(p.desc)}</div></div>
+    `;
+    opt.querySelector('input').addEventListener('change', () => {
+      state.personaId = p.id;
+      saveSetting('personaId', p.id);
+      renderPersonaList();
+      document.getElementById('customPersonaInput').hidden = p.id !== 'custom';
+    });
+    wrap.appendChild(opt);
+  });
+  document.getElementById('customPersonaInput').hidden = state.personaId !== 'custom';
+}
+
+function setupSettingsModal() {
+  const backdrop = document.getElementById('settingsBackdrop');
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    document.getElementById('appNameInput').value = CONFIG.appName;
+    document.getElementById('buttonNameInput').value = CONFIG.buttonName;
+    document.getElementById('radiusRange').value = CONFIG.radiusMeters;
+    document.getElementById('radiusHint').textContent = CONFIG.radiusMeters + ' m';
+    document.getElementById('moveRange').value = CONFIG.liveMoveThresholdMeters;
+    document.getElementById('moveHint').textContent = CONFIG.liveMoveThresholdMeters + ' m';
+    document.getElementById('customPersonaInput').value = state.customPersonaText;
+    renderPersonaList();
+    backdrop.classList.add('open');
+  });
+  const closeSettings = () => backdrop.classList.remove('open');
+  document.getElementById('settingsClose').addEventListener('click', closeSettings);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) closeSettings(); });
+  enableSwipeToDismiss(backdrop.querySelector('.modal'), closeSettings);
+
+  document.getElementById('customPersonaInput').addEventListener('input', e => {
+    state.customPersonaText = e.target.value;
+    saveSetting('customPersonaText', state.customPersonaText);
+  });
+
+  const voiceToggle = document.getElementById('voiceToggle');
+  voiceToggle.classList.toggle('on', state.voiceOn);
+  voiceToggle.addEventListener('click', () => {
+    state.voiceOn = !state.voiceOn;
+    saveSetting('voiceOn', state.voiceOn);
+    voiceToggle.classList.toggle('on', state.voiceOn);
+    if (!state.voiceOn) cancelSpeech();
+  });
+
+  document.getElementById('radiusRange').addEventListener('input', e => {
+    CONFIG.radiusMeters = Number(e.target.value);
+    document.getElementById('radiusHint').textContent = CONFIG.radiusMeters + ' m';
+  });
+  document.getElementById('moveRange').addEventListener('input', e => {
+    CONFIG.liveMoveThresholdMeters = Number(e.target.value);
+    document.getElementById('moveHint').textContent = CONFIG.liveMoveThresholdMeters + ' m';
+  });
+
+  document.getElementById('appNameInput').addEventListener('change', e => {
+    CONFIG.appName = e.target.value.trim() || 'Beau';
+    saveSetting('appName', CONFIG.appName);
+    applyNaming();
+  });
+  document.getElementById('buttonNameInput').addEventListener('change', e => {
+    CONFIG.buttonName = e.target.value.trim() || 'Beau';
+    saveSetting('buttonName', CONFIG.buttonName);
+    applyNaming();
+    if (state.mode === 'idle') setMode('idle');
+  });
+
+  document.getElementById('clearCacheBtn').addEventListener('click', () => {
+    state.cache.clear();
+    showToast('Lookup cache cleared.');
+  });
+  document.getElementById('resetSettingsBtn').addEventListener('click', () => {
+    ['appName', 'buttonName', 'personaId', 'customPersonaText', 'voiceOn'].forEach(k => {
+      try { localStorage.removeItem('cicerone.' + k); } catch (e) {}
+    });
+    location.reload();
+  });
+}
+
+function applyNaming() {
+  document.getElementById('brandMark').textContent = CONFIG.appName;
+  document.title = CONFIG.appName + ' — a presence that walks with you';
+  document.getElementById('idleHintBtnName').textContent = CONFIG.buttonName;
+}
+
+/* =========================================================================
+   Walk journal
+   ========================================================================= */
+function loadJournal() {
+  try { return JSON.parse(localStorage.getItem('cicerone.journal') || '[]'); } catch (e) { return []; }
+}
+function saveJournal(entries) {
+  try { localStorage.setItem('cicerone.journal', JSON.stringify(entries.slice(-200))); } catch (e) {}
+}
+function logJournalEntry(coords, pois) {
+  const entries = loadJournal();
+  entries.push({
+    time: new Date().toISOString(),
+    lat: Number(coords.latitude.toFixed(4)),
+    lon: Number(coords.longitude.toFixed(4)),
+    persona: currentPersona().name,
+    places: pois.map(p => ({ title: p.title, compass: p.compass, distanceMeters: Math.round(p.distance) }))
+  });
+  saveJournal(entries);
+}
+
+function renderJournal() {
+  const list = document.getElementById('journalList');
+  const empty = document.getElementById('journalEmpty');
+  const entries = loadJournal().slice().reverse();
+  list.innerHTML = '';
+  empty.hidden = entries.length > 0;
+  entries.forEach(entry => {
+    const el = document.createElement('div');
+    el.className = 'journal-entry';
+    const d = new Date(entry.time);
+    el.innerHTML = `
+      <div class="journal-date">${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
+      <div class="journal-loc">${entry.lat}, ${entry.lon} · as ${escapeHtml(entry.persona)}</div>
+      <ul class="journal-pois">${entry.places.map(p => `<li>${escapeHtml(p.title)} — ${p.compass}, ${p.distanceMeters}m</li>`).join('')}</ul>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function setupJournalModal() {
+  const backdrop = document.getElementById('journalBackdrop');
+  document.getElementById('journalBtn').addEventListener('click', () => { renderJournal(); backdrop.classList.add('open'); });
+  const closeJournal = () => backdrop.classList.remove('open');
+  document.getElementById('journalClose').addEventListener('click', closeJournal);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) closeJournal(); });
+  enableSwipeToDismiss(backdrop.querySelector('.modal'), closeJournal);
+
+  document.getElementById('exportJournalBtn').addEventListener('click', () => {
+    const entries = loadJournal();
+    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'cicerone-walk-journal.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById('clearJournalBtn').addEventListener('click', () => {
+    saveJournal([]);
+    renderJournal();
+  });
+}
+
+/* =========================================================================
+   Boot
+   ========================================================================= */
+function init() {
+  initMap();
+  applyNaming();
+  setMode('idle');
+  setupMainButton();
+  setupReveal();
+  setupArticleModal();
+  setupSettingsModal();
+  setupJournalModal();
+  document.getElementById('revealSpeakBtn').innerHTML = ICONS.speaker;
+  document.getElementById('mainBtnLabel').textContent = CONFIG.buttonName;
+  greetOnFirstVisit();
+}
+
+function greetOnFirstVisit() {
+  if (loadSetting('metBeau', false)) return;
+  saveSetting('metBeau', true);
+  setTimeout(() => showToast('Hi. I don’t have a face — just this pulse, and a voice. Press, and I’ll show you what I notice.', false, 7000), 500);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+})();
 </script>
 </body>
 </html>
