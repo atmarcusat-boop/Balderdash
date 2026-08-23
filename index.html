@@ -409,6 +409,11 @@ html, body {
 }
 #articleBody .passage-para { margin-bottom: 14px; }
 #articleBody .article-loading { color: var(--muted); font-style: italic; margin: 0; }
+.article-nav {
+  display: flex; align-items: center; gap: 6px; margin: 2px 0 14px;
+  font-size: 11px; color: var(--muted-2);
+}
+.article-nav svg { width: 12px; height: 12px; flex: none; color: var(--accent-light); }
 
 .persona-list { display: flex; flex-direction: column; gap: 8px; }
 .persona-opt {
@@ -539,6 +544,7 @@ html, body {
     <img class="article-hero" id="articleHero" alt="" hidden>
     <h2 id="articleTitle"></h2>
     <div class="sub" id="articleMeta"></div>
+    <div class="article-nav" id="articleNav"></div>
     <div id="articleBody"></div>
     <span class="poi-source" id="articleSource"></span>
   </div>
@@ -668,6 +674,8 @@ const state = {
   cache: new Map(),          // roundedCoordKey -> array of poi
   currentPois: [],
   passagePois: [],   // the subset actually woven into Beau's current passage
+  articlePois: [],   // the browsable set behind the article modal (state.currentPois at open time)
+  articleIndex: -1,  // which one is currently open, for swipe-to-explore
   personaId: loadSetting('personaId', CONFIG.defaultPersonaId),
   customPersonaText: loadSetting('customPersonaText', ''),
   voiceOn: loadSetting('voiceOn', true) !== false,
@@ -1798,14 +1806,27 @@ async function fetchFullExtract(pageid) {
   return page ? (page.extract || '').trim() : '';
 }
 
-async function openArticle(poi) {
+/* index is omitted when opening fresh from a tapped photo: the browsable
+   set becomes whatever this lookup found (state.currentPois, nearest
+   first), positioned at whichever place was tapped. Passed explicitly by
+   nextArticle/prevArticle when paging through that same set. */
+async function openArticle(poi, index) {
   const backdrop = document.getElementById('articleBackdrop');
   const hero = document.getElementById('articleHero');
   const body = document.getElementById('articleBody');
   const sourceEl = document.getElementById('articleSource');
+  const navEl = document.getElementById('articleNav');
+
+  if (index == null) {
+    state.articlePois = state.currentPois.length ? state.currentPois : [poi];
+    index = state.articlePois.findIndex(p => p.id === poi.id);
+    if (index === -1) { state.articlePois = [poi]; index = 0; }
+  }
+  state.articleIndex = index;
 
   document.getElementById('articleTitle').textContent = poi.title;
   document.getElementById('articleMeta').textContent = `${Math.round(poi.distance)}m to the ${poi.compass}`;
+  navEl.innerHTML = `${TYPE_ICONS.direction}<span>${index + 1} of ${state.articlePois.length} nearby &middot; swipe to explore</span>`;
   if (poi.image) { hero.src = poi.image; hero.alt = poi.title; hero.hidden = false; }
   else { hero.hidden = true; }
   body.innerHTML = '<p class="article-loading">Beau is writing this one up…</p>';
@@ -1827,12 +1848,73 @@ async function openArticle(poi) {
   }
 }
 
+/* Browsing forward walks state.articlePois outward (it's already sorted
+   nearest-first from the lookup that found it) — "whatever's closest you
+   haven't looked at yet", not a fixed ring. Backward retraces what's
+   already been seen. Both just stop at the ends of what's actually been
+   discovered rather than wrapping or fetching further. */
+function articleAt(index) {
+  if (index < 0) { showToast('Nothing closer behind you.'); return; }
+  if (index >= state.articlePois.length) { showToast('That’s everything found nearby for now.'); return; }
+  openArticle(state.articlePois[index], index);
+}
+function nextArticle() { articleAt(state.articleIndex + 1); }
+function prevArticle() { articleAt(state.articleIndex - 1); }
+
+/* One combined gesture handler for the article sheet: a mostly-vertical
+   drag (from the sheet's own scroll top, so it never fights scrolling
+   longer articles) dismisses it like any other bottom sheet; a
+   mostly-horizontal drag pages to the next/previous nearby place instead.
+   Axis is locked in once the drag clears a small deadzone, so a diagonal
+   start doesn't do both at once. */
+function enableArticleGestures(sheet, { onDismiss, onNext, onPrev }) {
+  let startX = null, startY = null, axis = null, dx = 0, dy = 0;
+
+  sheet.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { startX = null; return; }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    axis = null; dx = 0; dy = 0;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+
+  sheet.addEventListener('touchmove', e => {
+    if (startX == null) return;
+    dx = e.touches[0].clientX - startX;
+    dy = e.touches[0].clientY - startY;
+    if (!axis) {
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    }
+    if (axis === 'y') {
+      if (sheet.scrollTop > 0 || dy < 0) { sheet.style.transform = ''; return; }
+      sheet.style.transform = `translateY(${dy}px)`;
+    } else {
+      sheet.style.transform = `translateX(${dx}px)`;
+    }
+  }, { passive: true });
+
+  sheet.addEventListener('touchend', () => {
+    if (startX == null) return;
+    sheet.style.transition = '';
+    sheet.style.transform = '';
+    if (axis === 'y' && dy > 90) onDismiss();
+    else if (axis === 'x' && dx > 80) onNext();
+    else if (axis === 'x' && dx < -80) onPrev();
+    startX = null; startY = null; axis = null; dx = 0; dy = 0;
+  });
+}
+
 function setupArticleModal() {
   const backdrop = document.getElementById('articleBackdrop');
   const close = () => backdrop.classList.remove('open');
   document.getElementById('articleClose').addEventListener('click', close);
   backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
-  enableSwipeToDismiss(backdrop.querySelector('.modal'), close);
+  enableArticleGestures(backdrop.querySelector('.modal'), {
+    onDismiss: close,
+    onNext: nextArticle,
+    onPrev: prevArticle
+  });
 }
 
 /* =========================================================================
