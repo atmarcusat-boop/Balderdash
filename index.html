@@ -676,6 +676,8 @@ const state = {
   passagePois: [],   // the subset actually woven into Beau's current passage
   articlePois: [],   // the browsable set behind the article modal (state.currentPois at open time)
   articleIndex: -1,  // which one is currently open, for swipe-to-explore
+  articleHistory: [], // pois opened before the current one, via a fresh photo tap (not lateral swipe) — "back" pops this
+  lastArticlePoi: null,
   personaId: loadSetting('personaId', CONFIG.defaultPersonaId),
   customPersonaText: loadSetting('customPersonaText', ''),
   voiceOn: loadSetting('voiceOn', true) !== false,
@@ -1374,7 +1376,7 @@ function renderPassageImages(container, pois) {
     cap.textContent = p.title;
     fig.appendChild(img);
     fig.appendChild(cap);
-    fig.addEventListener('click', () => openArticle(p));
+    fig.addEventListener('click', () => openArticleFresh(p));
     container.appendChild(fig);
   });
 }
@@ -1546,6 +1548,8 @@ async function renderPassage(pois, persona) {
 
   cancelSpeech();
   state.passagePois = [];
+  state.articleHistory = [];
+  state.lastArticlePoi = null;
 
   if (!pois.length) {
     idleHint.hidden = false;
@@ -1823,6 +1827,7 @@ async function openArticle(poi, index) {
     if (index === -1) { state.articlePois = [poi]; index = 0; }
   }
   state.articleIndex = index;
+  state.lastArticlePoi = poi;
 
   document.getElementById('articleTitle').textContent = poi.title;
   document.getElementById('articleMeta').textContent = `${Math.round(poi.distance)}m to the ${poi.compass}`;
@@ -1860,6 +1865,33 @@ function articleAt(index) {
 }
 function nextArticle() { articleAt(state.articleIndex + 1); }
 function prevArticle() { articleAt(state.articleIndex - 1); }
+
+/* Entry point for tapping a photo (as opposed to swiping within an
+   already-open article). If a different article was already open, it's
+   pushed onto state.articleHistory first, so closing steps back to it
+   instead of dropping straight to the passage panel — a real "you were
+   reading X before you opened Y" breadcrumb. Swiping never pushes here:
+   that's lateral browsing of the same list, already reversible by
+   swiping the other way. */
+function openArticleFresh(poi) {
+  if (state.lastArticlePoi && state.lastArticlePoi.id !== poi.id) {
+    state.articleHistory.push(state.lastArticlePoi);
+  }
+  openArticle(poi);
+}
+
+/* Every dismissal (X, backdrop tap, swipe down) goes through here: step
+   back to whatever article was open before this one, if anything, and
+   only actually close the modal once that history is exhausted. */
+function articleBack() {
+  const prev = state.articleHistory.pop();
+  if (!prev) {
+    document.getElementById('articleBackdrop').classList.remove('open');
+    return;
+  }
+  const idx = state.articlePois.findIndex(p => p.id === prev.id);
+  openArticle(prev, idx === -1 ? undefined : idx);
+}
 
 /* One combined gesture handler for the article sheet: a mostly-vertical
    drag (from the sheet's own scroll top, so it never fights scrolling
@@ -1907,11 +1939,10 @@ function enableArticleGestures(sheet, { onDismiss, onNext, onPrev }) {
 
 function setupArticleModal() {
   const backdrop = document.getElementById('articleBackdrop');
-  const close = () => backdrop.classList.remove('open');
-  document.getElementById('articleClose').addEventListener('click', close);
-  backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
+  document.getElementById('articleClose').addEventListener('click', articleBack);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) articleBack(); });
   enableArticleGestures(backdrop.querySelector('.modal'), {
-    onDismiss: close,
+    onDismiss: articleBack,
     onNext: nextArticle,
     onPrev: prevArticle
   });
