@@ -225,9 +225,11 @@ html, body {
 .reveal-backdrop.visible { background: rgba(4, 4, 8, 0.72); }
 
 .reveal-panel {
+  position: relative;
   width: min(94vw, 460px);
   max-height: 82vh;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   background: var(--panel);
   border: 1px solid var(--border-strong);
@@ -237,8 +239,46 @@ html, body {
   transform: scale(0.04);
   opacity: 0;
   transition: transform 0.5s cubic-bezier(.16,1,.3,1), opacity 0.32s ease;
+  isolation: isolate;
 }
 .reveal-panel.shown { transform: scale(1); opacity: 1; }
+
+.reveal-panel::before,
+.reveal-panel::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(46px);
+  opacity: 0.22;
+  pointer-events: none;
+  will-change: transform;
+}
+.reveal-panel::before {
+  width: 220px; height: 220px;
+  top: -70px; left: -60px;
+  background: var(--accent);
+  animation: revealGlowDriftA 13s ease-in-out infinite;
+}
+.reveal-panel::after {
+  width: 200px; height: 200px;
+  bottom: -80px; right: -50px;
+  background: var(--live);
+  animation: revealGlowDriftB 16s ease-in-out infinite;
+}
+.reveal-panel > * { position: relative; z-index: 1; }
+
+@keyframes revealGlowDriftA {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(24px, 18px) scale(1.15); }
+}
+@keyframes revealGlowDriftB {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-20px, -16px) scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-panel::before, .reveal-panel::after { animation: none; }
+}
 
 .reveal-close {
   position: absolute; top: 14px; right: 16px;
