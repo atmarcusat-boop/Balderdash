@@ -373,10 +373,13 @@ html, body {
 .followup-answer .para-icon { width: 16px; height: 16px; margin-top: 3px; }
 .followup-loading { color: var(--muted); font-style: italic; margin: 0; }
 
-/* ============ Modals (settings / journal) ============ */
+/* ============ Modals (settings / journal / article) ============ */
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(4,4,8,0.65);
-  z-index: 900; display: none; align-items: flex-end;
+  /* Above .reveal-backdrop (960): the article modal opens from a photo
+     inside an already-open reveal panel, so it must render on top of it,
+     not behind it. */
+  z-index: 970; display: none; align-items: flex-end;
 }
 .modal-backdrop.open { display: flex; }
 .modal {
@@ -1743,6 +1746,39 @@ function setupReveal() {
   });
 }
 
+/* Drag-down-to-dismiss for a bottom sheet. Only engages when the sheet is
+   already scrolled to its top (so it never fights normal scrolling of
+   long content) — from there, dragging down follows the finger, and
+   releasing past a small threshold closes it; anything short of that
+   snaps back. */
+function enableSwipeToDismiss(sheet, onClose) {
+  let startY = null;
+  let dy = 0;
+
+  sheet.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1 || sheet.scrollTop > 0) { startY = null; return; }
+    startY = e.touches[0].clientY;
+    dy = 0;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+
+  sheet.addEventListener('touchmove', e => {
+    if (startY == null) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy < 0) dy = 0;
+    sheet.style.transform = dy ? `translateY(${dy}px)` : '';
+  }, { passive: true });
+
+  sheet.addEventListener('touchend', () => {
+    if (startY == null) return;
+    sheet.style.transition = '';
+    sheet.style.transform = '';
+    if (dy > 90) onClose();
+    startY = null;
+    dy = 0;
+  });
+}
+
 /* =========================================================================
    Article modal — Beau's own fuller write-up of a single place, opened by
    tapping its photo. Written from a fuller real extract when one exists
@@ -1793,8 +1829,10 @@ async function openArticle(poi) {
 
 function setupArticleModal() {
   const backdrop = document.getElementById('articleBackdrop');
-  document.getElementById('articleClose').addEventListener('click', () => backdrop.classList.remove('open'));
-  backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.classList.remove('open'); });
+  const close = () => backdrop.classList.remove('open');
+  document.getElementById('articleClose').addEventListener('click', close);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
+  enableSwipeToDismiss(backdrop.querySelector('.modal'), close);
 }
 
 /* =========================================================================
@@ -1834,8 +1872,10 @@ function setupSettingsModal() {
     renderPersonaList();
     backdrop.classList.add('open');
   });
-  document.getElementById('settingsClose').addEventListener('click', () => backdrop.classList.remove('open'));
-  backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.classList.remove('open'); });
+  const closeSettings = () => backdrop.classList.remove('open');
+  document.getElementById('settingsClose').addEventListener('click', closeSettings);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) closeSettings(); });
+  enableSwipeToDismiss(backdrop.querySelector('.modal'), closeSettings);
 
   document.getElementById('customPersonaInput').addEventListener('input', e => {
     state.customPersonaText = e.target.value;
@@ -1933,8 +1973,10 @@ function renderJournal() {
 function setupJournalModal() {
   const backdrop = document.getElementById('journalBackdrop');
   document.getElementById('journalBtn').addEventListener('click', () => { renderJournal(); backdrop.classList.add('open'); });
-  document.getElementById('journalClose').addEventListener('click', () => backdrop.classList.remove('open'));
-  backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.classList.remove('open'); });
+  const closeJournal = () => backdrop.classList.remove('open');
+  document.getElementById('journalClose').addEventListener('click', closeJournal);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) closeJournal(); });
+  enableSwipeToDismiss(backdrop.querySelector('.modal'), closeJournal);
 
   document.getElementById('exportJournalBtn').addEventListener('click', () => {
     const entries = loadJournal();
