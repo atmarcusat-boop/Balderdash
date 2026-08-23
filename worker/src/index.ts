@@ -70,7 +70,7 @@ function placesBlockFor(facts: Fact[]): string {
 function userPromptFor(facts: Fact[], full: boolean): string {
   const lengthNote = full
     ? `Write a fuller version now: 2 to 4 short story paragraphs, each separated by a blank line, delivered like a guide who has a little more time with the group. Give each place a proper mini-story: its best hook, a genuinely interesting or little-known detail if the source material has one, and what it is today, when that's part of the story. Move between places the way a guide actually walking with the group would, not as separate entries.`
-    : `Write the story as 1 to 3 short paragraphs, each separated by a blank line, the way a guide would open the first minute of stopping here. Lead with a hook, not a location report, and weave in the best of what's given.`;
+    : `Write the story as at least 2 short paragraphs, each separated by a blank line, the way a guide would open the first minute of stopping here — even for a single place, break your own writing at a natural turn (the hook, then the detail) rather than handing over one dense block. Lead with a hook, not a location report, and weave in the best of what's given.`;
 
   return [
     `You're live, mid-tour, standing with a group who paid to be here.`,

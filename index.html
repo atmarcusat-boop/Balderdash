@@ -299,11 +299,13 @@ html, body {
    collapses to nothing when none of this stop's places had one. */
 .passage-images { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .passage-images:empty { display: none; margin-bottom: 0; }
-.passage-image { flex: none; width: 96px; }
+.passage-image { flex: none; width: 96px; display: block; text-decoration: none; color: inherit; }
 .passage-image img {
   width: 96px; height: 96px; object-fit: cover; border-radius: 14px; display: block;
   background: var(--panel-2); border: 1px solid var(--border);
+  transition: opacity 0.15s ease;
 }
+.passage-image:active img { opacity: 0.75; }
 .passage-image span {
   display: block; margin-top: 5px; font-size: 10.5px; color: var(--muted-2);
   text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1264,6 +1266,27 @@ function speechTextFrom(text) {
    "NEXT:") is rendered as a distinct "what to do now" line with its own
    icon and the tag stripped. Falls back to a single untagged paragraph
    if the text doesn't parse into blocks at all. */
+/* Splits on sentence boundaries (., !, ?) rather than just words, so a
+   forced break never lands mid-sentence. */
+function splitIntoSentences(text) {
+  const matches = text.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [text];
+  return matches.map(s => s.trim()).filter(Boolean);
+}
+
+/* The model is asked to write in paragraphs, but won't always do it,
+   especially for a short passage about one place. If it hands back a
+   single block with enough sentences to actually read as two thoughts,
+   split it at the midpoint sentence rather than showing one dense
+   block — a real paragraph break should always be visible, not just
+   requested. */
+function ensureParagraphBreaks(parts) {
+  if (parts.length !== 1) return parts;
+  const sentences = splitIntoSentences(parts[0]);
+  if (sentences.length < 3) return parts;
+  const mid = Math.ceil(sentences.length / 2);
+  return [sentences.slice(0, mid).join(' '), sentences.slice(mid).join(' ')];
+}
+
 function renderPassageBlock(container, text) {
   container.innerHTML = '';
   const parts = String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
@@ -1276,6 +1299,7 @@ function renderPassageBlock(container, text) {
     storyParts = parts.slice(0, -1);
   }
   if (!storyParts.length) storyParts = nextLine ? [] : parts;
+  storyParts = ensureParagraphBreaks(storyParts);
 
   storyParts.forEach(p => {
     const type = detectPlaceType({ title: '', extract: p });
@@ -1300,8 +1324,9 @@ function renderPassageBlock(container, text) {
 function renderPassageImages(container, pois) {
   container.innerHTML = '';
   pois.filter(p => p.image).forEach(p => {
-    const fig = document.createElement('div');
+    const fig = document.createElement(p.url ? 'a' : 'div');
     fig.className = 'passage-image';
+    if (p.url) { fig.href = p.url; fig.target = '_blank'; fig.rel = 'noopener'; }
     const img = document.createElement('img');
     img.src = p.image;
     img.alt = p.title;
