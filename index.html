@@ -294,6 +294,18 @@ html, body {
 }
 .reveal-text { font-size: 21px; line-height: 1.5; color: var(--paper); font-family: var(--font-display); font-weight: 500; }
 
+/* Each narrated paragraph gets a small icon guessed from its own content,
+   real spacing between paragraphs, and, when the model closes with a
+   "NEXT:" line, a visually distinct "what to do now" row at the end. */
+.passage-para { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
+.passage-para:last-child { margin-bottom: 0; }
+.passage-para p { margin: 0; }
+.para-icon { flex: none; width: 20px; height: 20px; margin-top: 4px; color: var(--accent-light); opacity: 0.85; }
+.para-icon svg { width: 100%; height: 100%; display: block; }
+.passage-next { margin-top: 6px; padding-top: 16px; border-top: 1px dashed var(--border-strong); }
+.passage-next .para-icon { color: var(--live); opacity: 1; }
+.passage-next p { color: var(--muted); font-style: italic; }
+
 /* ============ Passage actions / deeper detail (shared: reveal panel + settings-style bits) ============ */
 .passage-actions { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
 .tell-more-btn {
@@ -311,9 +323,45 @@ html, body {
   margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
   font-size: 15px; line-height: 1.6; color: var(--muted);
 }
+.poi-full .para-icon { width: 16px; height: 16px; margin-top: 3px; }
 .poi-full.loading { font-style: italic; }
 .poi-source { display: block; margin-top: 10px; font-size: 11px; color: var(--muted-2); }
 .poi-source a { color: var(--accent-light); }
+
+/* ============ Follow-up chips + ask box ============ */
+.followups { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+.followups-chips { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.followup-chip {
+  text-align: left;
+  background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 12px;
+  color: var(--paper); font-family: var(--font-body); font-size: 13.5px; line-height: 1.35;
+  padding: 10px 12px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.followup-chip:hover { border-color: var(--accent); background: rgba(124,111,238,0.12); }
+.followup-chip:active { transform: scale(0.99); }
+.followup-form { display: flex; align-items: center; gap: 8px; }
+.followup-input {
+  flex: 1; min-width: 0;
+  background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 12px;
+  color: var(--paper); font-family: var(--font-body); font-size: 14px;
+  padding: 10px 12px;
+}
+.followup-input::placeholder { color: var(--muted-2); }
+.followup-input:focus { outline: none; border-color: var(--accent); }
+.followup-send {
+  flex: none; width: 38px; height: 38px; border-radius: 12px;
+  background: var(--accent); border: none; color: var(--paper);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.followup-send svg { width: 18px; height: 18px; display: block; }
+.followup-send:hover { background: var(--accent-light); }
+.followup-answer {
+  margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border-strong);
+  font-size: 15px; line-height: 1.6; color: var(--paper);
+}
+.followup-answer .para-icon { width: 16px; height: 16px; margin-top: 3px; }
+.followup-loading { color: var(--muted); font-style: italic; margin: 0; }
 
 /* ============ Modals (settings / journal) ============ */
 .modal-backdrop {
@@ -440,12 +488,23 @@ html, body {
     <button class="reveal-close" id="revealClose">✕</button>
     <div class="reveal-icons" id="revealIcons"></div>
     <div class="reveal-summary" id="revealSummary"></div>
-    <p class="reveal-text" id="revealText"></p>
+    <div class="reveal-text" id="revealText"></div>
     <div class="passage-actions">
       <button class="tell-more-btn" id="revealMoreBtn">Tell me more</button>
       <button class="speak-btn" id="revealSpeakBtn" title="Read this aloud"></button>
     </div>
     <div class="poi-full" id="revealFull" hidden></div>
+
+    <div class="followups" id="followups" hidden>
+      <div class="followups-chips" id="followupChips"></div>
+      <form class="followup-form" id="followupForm">
+        <input type="text" id="followupInput" class="followup-input" placeholder="Ask Beau anything about this…" autocomplete="off" />
+        <button type="submit" class="followup-send" id="followupSend" aria-label="Ask">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+    </div>
+    <div class="followup-answer" id="followupAnswer" hidden></div>
   </div>
 </div>
 
@@ -647,9 +706,10 @@ const TYPE_ICONS = {
   worship: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M10.5 3.5h3"/><path d="M7 21V11l5-5 5 5v10"/><path d="M5 21h14"/></svg>',
   art: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="1"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5-4 4-3-3-6 6"/></svg>',
   memorial: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.5 6.5h-7L12 2z"/><path d="M8.5 8.5h7L14 21h-4L8.5 8.5z"/></svg>',
-  nature: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21c8 0 14-6 14-14V4h-3C8 4 5 10 5 18v3z"/><path d="M5 21c3-6 6-9 12-13"/></svg>'
+  nature: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21c8 0 14-6 14-14V4h-3C8 4 5 10 5 18v3z"/><path d="M5 21c3-6 6-9 12-13"/></svg>',
+  direction: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c4-5 7-8.5 7-12a7 7 0 10-14 0c0 3.5 3 7 7 12z"/><circle cx="12" cy="9" r="2.3"/></svg>'
 };
-const TYPE_LABELS = { historic: 'History', architecture: 'Architecture', worship: 'Sacred spaces', art: 'Art', memorial: 'Memorials', nature: 'Green space' };
+const TYPE_LABELS = { historic: 'History', architecture: 'Architecture', worship: 'Sacred spaces', art: 'Art', memorial: 'Memorials', nature: 'Green space', direction: 'Next' };
 
 /* Guesses a display type from the place's own name/description text —
    good enough for a decorative icon and a two-word theme line, not
@@ -1137,11 +1197,146 @@ async function narrateMany(pois, persona, opts) {
     } catch (e) { /* fall through to keyless passthrough */ }
   }
   // Keyless / offline fallback: plain facts, no invented framing.
-  return facts.map(f => `${f.title} — ${shortFact(f.extract, full ? 320 : 130)}`).join(' ') || 'No description available for this place yet.';
+  return facts.map(f => `${f.title}. ${shortFact(f.extract, full ? 320 : 130)}`).join('\n\n') || 'No description available for this place yet.';
+}
+
+/* A free-typed or chip-picked follow-up question, answered from the exact
+   same retrieved facts already on screen — never a fresh web lookup, so
+   the truth/charm boundary holds here too. Requires the narration proxy;
+   there's no sensible keyless answer to an arbitrary question. */
+async function askQuestion(pois, persona, question) {
+  if (!CONFIG.narrationEndpoint) return null;
+  const facts = pois.map(p => ({
+    title: p.title,
+    extract: (p.fullExtract || p.extract) || '',
+    distanceMeters: Math.round(p.distance),
+    compass: p.compass
+  }));
+  try {
+    const res = await fetch(CONFIG.narrationEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        persona: persona.id === 'custom' ? { id: 'custom', description: state.customPersonaText } : { id: persona.id, name: persona.name },
+        facts,
+        question
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data && data.narration) || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 function currentPersona() {
   return CONFIG.personas.find(p => p.id === state.personaId) || CONFIG.personas[0];
+}
+
+/* Splits the model's trailing "Q: ..." block (three suggested follow-up
+   questions, one per line) off of the main text, so it can drive the
+   tap-to-ask chips instead of being displayed as passage content. */
+function splitFollowups(text) {
+  const parts = String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return { body: '', questions: [] };
+  const last = parts[parts.length - 1];
+  const lines = last.split('\n').map(l => l.trim()).filter(Boolean);
+  const isQuestionBlock = lines.length >= 2 && lines.every(l => /^Q:/i.test(l));
+  if (!isQuestionBlock) return { body: parts.join('\n\n'), questions: [] };
+  const questions = lines.map(l => l.replace(/^Q:\s*/i, '').trim()).filter(Boolean);
+  return { body: parts.slice(0, -1).join('\n\n'), questions };
+}
+
+/* Strips the model's own newlines/formatting down to something natural for
+   speechSynthesis: the "NEXT:" tag read out loud would sound broken, and
+   paragraph breaks should read as pauses, not literal text. */
+function speechTextFrom(text) {
+  return String(text || '').replace(/\bNEXT:\s*/gi, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/* Renders narration text as real paragraph blocks, each prefixed with a
+   small icon guessed from that paragraph's own content, not from a
+   1:1 mapping to POIs, so it stays correct even if the model doesn't
+   split its paragraphs exactly along place boundaries. If the model
+   followed the closing-instruction format, the last paragraph (starting
+   "NEXT:") is rendered as a distinct "what to do now" line with its own
+   icon and the tag stripped. Falls back to a single untagged paragraph
+   if the text doesn't parse into blocks at all. */
+function renderPassageBlock(container, text) {
+  container.innerHTML = '';
+  const parts = String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return;
+
+  let nextLine = null;
+  let storyParts = parts;
+  if (/^NEXT:/i.test(parts[parts.length - 1])) {
+    nextLine = parts[parts.length - 1].replace(/^NEXT:\s*/i, '');
+    storyParts = parts.slice(0, -1);
+  }
+  if (!storyParts.length) storyParts = nextLine ? [] : parts;
+
+  storyParts.forEach(p => {
+    const type = detectPlaceType({ title: '', extract: p });
+    const row = document.createElement('div');
+    row.className = 'passage-para';
+    row.innerHTML = `<span class="para-icon">${TYPE_ICONS[type]}</span><p>${escapeHtml(p)}</p>`;
+    container.appendChild(row);
+  });
+
+  if (nextLine) {
+    const row = document.createElement('div');
+    row.className = 'passage-para passage-next';
+    row.innerHTML = `<span class="para-icon">${TYPE_ICONS.direction}</span><p>${escapeHtml(nextLine)}</p>`;
+    container.appendChild(row);
+  }
+}
+
+/* Renders up to 3 tap-to-ask chips (Beau's own suggested follow-ups for
+   this passage). Hidden entirely when there's no narration proxy to
+   answer them, or nothing was suggested. */
+function renderFollowupChips(questions) {
+  const wrap = document.getElementById('followups');
+  const chipsEl = document.getElementById('followupChips');
+  chipsEl.innerHTML = '';
+  if (!CONFIG.narrationEndpoint || !questions || !questions.length) {
+    wrap.hidden = true;
+    return;
+  }
+  questions.slice(0, 3).forEach(q => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'followup-chip';
+    btn.textContent = q;
+    btn.addEventListener('click', () => askFollowup(q));
+    chipsEl.appendChild(btn);
+  });
+  wrap.hidden = false;
+}
+
+/* Handles both a tapped chip and a typed custom question: answers it from
+   the same facts already backing the current passage, shows the answer
+   inline, then refreshes the chips with whatever Beau suggests next. */
+async function askFollowup(question) {
+  const q = (question || '').trim();
+  const pois = state.passagePois;
+  if (!q || !pois.length) return;
+
+  const answerEl = document.getElementById('followupAnswer');
+  const persona = currentPersona();
+  answerEl.hidden = false;
+  answerEl.innerHTML = '<p class="followup-loading">Beau is thinking…</p>';
+
+  const raw = await askQuestion(pois, persona, q);
+  if (!raw) {
+    answerEl.innerHTML = '<p class="followup-loading">Couldn’t get an answer just now.</p>';
+    return;
+  }
+  const { body: answer, questions } = splitFollowups(raw);
+  renderPassageBlock(answerEl, answer);
+  answerEl.dataset.spoken = speechTextFrom(answer);
+  if (state.voiceOn) speak(answerEl.dataset.spoken, persona);
+  if (questions.length) renderFollowupChips(questions);
 }
 
 /* =========================================================================
@@ -1268,19 +1463,28 @@ async function renderPassage(pois, persona) {
   const narrated = pois.slice(0, CONFIG.maxAutoNarrated);
   await Promise.all(narrated.filter(p => p.source === 'osm').map(enrichThinPoi));
 
-  const passage = await narrateMany(narrated, persona, { full: false });
+  const raw = await narrateMany(narrated, persona, { full: false });
+  const { body: passage, questions } = splitFollowups(raw);
   state.passagePois = narrated;
 
   const theme = themeFor(narrated);
 
   document.getElementById('revealIcons').innerHTML = theme.icons;
   document.getElementById('revealSummary').textContent = theme.summary;
-  document.getElementById('revealText').textContent = passage;
+  const textEl = document.getElementById('revealText');
+  renderPassageBlock(textEl, passage);
+  textEl.dataset.spoken = speechTextFrom(passage);
   document.getElementById('revealFull').hidden = true;
   document.getElementById('revealFull').dataset.loaded = '';
 
+  const answerEl = document.getElementById('followupAnswer');
+  answerEl.hidden = true;
+  answerEl.innerHTML = '';
+  document.getElementById('followupInput').value = '';
+  renderFollowupChips(questions);
+
   showReveal();
-  if (state.voiceOn) speak(passage, persona);
+  if (state.voiceOn) speak(textEl.dataset.spoken, persona);
 }
 
 /* The reveal blooms open from wherever Beau currently sits on screen —
@@ -1359,15 +1563,19 @@ async function onRevealMore() {
       if (poi.pageid && !poi.fullExtract) poi.fullExtract = await fetchFullExtract(poi.pageid).catch(() => poi.extract);
       else if (!poi.fullExtract) poi.fullExtract = poi.extract;
     }
-    const combined = await narrateMany(pois, persona, { full: true });
+    const raw = await narrateMany(pois, persona, { full: true });
+    const { body: combined, questions } = splitFollowups(raw);
     fullEl.classList.remove('loading');
+    renderPassageBlock(fullEl, combined);
+    fullEl.dataset.spoken = speechTextFrom(combined);
     const sourceLine = pois.map(p => {
       const label = p.pageid ? 'Wikipedia' : (p.source === 'osm+wikidata' ? 'Wikidata' : 'OpenStreetMap');
       return `<a href="${p.url}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a> (${label})`;
     }).join(' · ');
-    fullEl.innerHTML = `<p>${escapeHtml(combined)}</p><span class="poi-source">Sources: ${sourceLine}</span>`;
+    fullEl.insertAdjacentHTML('beforeend', `<span class="poi-source">Sources: ${sourceLine}</span>`);
     fullEl.dataset.loaded = '1';
-    if (state.voiceOn) speak(combined, persona);
+    if (questions.length) renderFollowupChips(questions);
+    if (state.voiceOn) speak(fullEl.dataset.spoken, persona);
   } catch (err) {
     fullEl.classList.remove('loading');
     fullEl.textContent = 'Couldn’t fetch more detail right now.';
@@ -1379,7 +1587,7 @@ function onRevealSpeak() {
   const textEl = document.getElementById('revealText');
   cancelSpeech();
   const persona = currentPersona();
-  const spoken = (!fullEl.hidden && fullEl.dataset.loaded === '1') ? fullEl.querySelector('p').textContent : textEl.textContent;
+  const spoken = (!fullEl.hidden && fullEl.dataset.loaded === '1') ? fullEl.dataset.spoken : textEl.dataset.spoken;
   speak(spoken, persona);
 }
 
@@ -1471,6 +1679,15 @@ function setupReveal() {
   backdrop.addEventListener('click', e => { if (e.target === backdrop) hideReveal(); });
   document.getElementById('revealMoreBtn').addEventListener('click', onRevealMore);
   document.getElementById('revealSpeakBtn').addEventListener('click', onRevealSpeak);
+
+  document.getElementById('followupForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const input = document.getElementById('followupInput');
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+    askFollowup(q);
+  });
 }
 
 /* =========================================================================
