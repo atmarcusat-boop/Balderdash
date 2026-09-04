@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Upload } from 'lucide-react'
 import type { Player } from '../../engine/types'
 import { useMatchStore } from '../../hooks/useMatchStore'
+import { ImportError, parseImportedMatch } from '../../engine/serialization'
 import { Card, SectionLabel } from '../shared/Card'
 import { Chip, IconButton, PrimaryButton, SecondaryButton } from '../shared/Buttons'
 
@@ -73,7 +74,20 @@ function SquadEditor({
 }
 
 export function MatchSetupScreen() {
-  const { newMatch, startInnings } = useMatchStore()
+  const { newMatch, startInnings, loadMatch } = useMatchStore()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+
+  const handleImportFile = async (file: File) => {
+    setImportError(null)
+    try {
+      const text = await file.text()
+      const restored = parseImportedMatch(text)
+      loadMatch(restored)
+    } catch (err) {
+      setImportError(err instanceof ImportError ? err.message : 'Could not read that file.')
+    }
+  }
 
   const [step, setStep] = useState(0)
   const [teamAName, setTeamAName] = useState('Team A')
@@ -122,6 +136,27 @@ export function MatchSetupScreen() {
         <span className="text-2xl font-black tracking-tight text-[var(--color-ink)]">Quockarr</span>
         <p className="text-sm text-[var(--color-ink-dim)]">Set up a new match</p>
       </header>
+
+      <div className="flex flex-col items-center gap-1.5 pb-1">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleImportFile(file)
+            e.target.value = ''
+          }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-ink-dim)] underline decoration-dotted underline-offset-4 active:text-[var(--color-accent)]"
+        >
+          <Upload size={14} /> Restore a match from a backup file
+        </button>
+        {importError && <p className="text-sm text-[var(--color-danger)]">{importError}</p>}
+      </div>
 
       <div className="flex items-center gap-1.5">
         {steps.map((label, i) => (

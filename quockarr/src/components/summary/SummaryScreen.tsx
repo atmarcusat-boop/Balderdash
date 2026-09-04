@@ -1,7 +1,10 @@
+import { Download, FileText } from 'lucide-react'
 import type { Match } from '../../engine/types'
 import { useMatchDerived } from '../../hooks/useDerivedMatch'
+import { downloadTextFile, exportMatchJson, matchFilename, matchToText } from '../../engine/serialization'
 import { InningsScorecard } from './InningsScorecard'
 import { Card } from '../shared/Card'
+import { SecondaryButton } from '../shared/Buttons'
 
 export function SummaryScreen({ match }: { match: Match }) {
   const derived = useMatchDerived(match)
@@ -22,6 +25,22 @@ export function SummaryScreen({ match }: { match: Match }) {
           </p>
         </Card>
       )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <SecondaryButton
+          onClick={() => downloadTextFile(matchFilename(match, 'txt'), matchToText(match), 'text/plain')}
+          className="flex items-center justify-center gap-2"
+        >
+          <FileText size={16} /> Scorecard (.txt)
+        </SecondaryButton>
+        <SecondaryButton
+          onClick={() => downloadTextFile(matchFilename(match, 'json'), exportMatchJson(match), 'application/json')}
+          className="flex items-center justify-center gap-2"
+        >
+          <Download size={16} /> Backup (.json)
+        </SecondaryButton>
+      </div>
+
       {derived.firstInnings && (
         <InningsScorecard match={match} innings={derived.firstInnings} players={derived.players} inningsNumber={1} />
       )}

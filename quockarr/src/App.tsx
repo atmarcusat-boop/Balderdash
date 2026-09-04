@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react'
-import { ClipboardList, Eye, Plus, Radio } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { AlertTriangle, ClipboardList, Download, Eye, Plus, Radio } from 'lucide-react'
 import { useMatchStore } from './hooks/useMatchStore'
 import { useMatchDerived } from './hooks/useDerivedMatch'
+import { exportMatchJson, downloadTextFile, matchFilename } from './engine/serialization'
 import { MatchSetupScreen } from './components/setup/MatchSetupScreen'
 import { SecondInningsSetup } from './components/setup/SecondInningsSetup'
 import { LiveScoringScreen } from './components/scoring/LiveScoringScreen'
@@ -9,6 +10,28 @@ import { LiveView } from './components/live/LiveView'
 import { SummaryScreen } from './components/summary/SummaryScreen'
 import { Modal } from './components/shared/Modal'
 import { IconButton, PrimaryButton, SecondaryButton } from './components/shared/Buttons'
+import type { Match } from './engine/types'
+
+function SaveStatus({ lastSavedAt, saveFailed }: { lastSavedAt: number | null; saveFailed: boolean }) {
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (saveFailed) return null // the banner below covers this case with more room to explain
+  if (!lastSavedAt) return null
+
+  const secondsAgo = Math.max(0, Math.round((Date.now() - lastSavedAt) / 1000))
+  const label = secondsAgo < 3 ? 'Saved on this device' : `Saved ${secondsAgo}s ago`
+
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-[var(--color-ink-faint)]" title={label}>
+      <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-accent)]" />
+      <span className="hidden sm:inline">{label}</span>
+    </span>
+  )
+}
 
 function AppHeader({
   live,
@@ -18,6 +41,10 @@ function AppHeader({
   scorecardOpen,
   onToggleScorecard,
   onRequestNewMatch,
+  onExport,
+  showExport,
+  lastSavedAt,
+  saveFailed,
 }: {
   live: boolean
   watchMode: boolean
@@ -26,6 +53,10 @@ function AppHeader({
   scorecardOpen: boolean
   onToggleScorecard: () => void
   onRequestNewMatch: () => void
+  onExport: () => void
+  showExport: boolean
+  lastSavedAt: number | null
+  saveFailed: boolean
 }) {
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg)]/90 px-4 py-3 backdrop-blur">
@@ -34,6 +65,7 @@ function AppHeader({
         <span className="text-base font-black tracking-tight text-[var(--color-ink)]">Quockarr</span>
       </div>
       <div className="flex items-center gap-2">
+        <SaveStatus lastSavedAt={lastSavedAt} saveFailed={saveFailed} />
         {live && (
           <IconButton
             label={watchMode ? 'Switch to scoring' : 'Switch to live view'}
@@ -52,6 +84,11 @@ function AppHeader({
             <ClipboardList size={17} />
           </IconButton>
         )}
+        {showExport && (
+          <IconButton label="Download backup" onClick={onExport}>
+            <Download size={17} />
+          </IconButton>
+        )}
         <IconButton label="New match" onClick={onRequestNewMatch}>
           <Plus size={17} />
         </IconButton>
@@ -60,8 +97,12 @@ function AppHeader({
   )
 }
 
+function exportBackup(match: Match) {
+  downloadTextFile(matchFilename(match, 'json'), exportMatchJson(match), 'application/json')
+}
+
 export default function App() {
-  const { match, discardMatch } = useMatchStore()
+  const { match, discardMatch, lastSavedAt, saveFailed } = useMatchStore()
   const derived = useMatchDerived(match)
   const [watchMode, setWatchMode] = useState(false)
   const [scorecardOpen, setScorecardOpen] = useState(false)
@@ -92,6 +133,13 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-[var(--color-bg)]">
+      {saveFailed && (
+        <div className="flex items-center gap-2 bg-[var(--color-danger)] px-4 py-2 text-sm font-semibold text-white">
+          <AlertTriangle size={16} className="shrink-0" />
+          Not saving to this device (storage blocked or full). Download a backup after every over —
+          don't refresh until you have.
+        </div>
+      )}
       <AppHeader
         live={isLiveScreen}
         watchMode={watchMode}
@@ -100,6 +148,10 @@ export default function App() {
         scorecardOpen={scorecardOpen}
         onToggleScorecard={() => setScorecardOpen((v) => !v)}
         onRequestNewMatch={() => setConfirmNewMatch(true)}
+        onExport={() => exportBackup(match)}
+        showExport={hasScoringStarted}
+        lastSavedAt={lastSavedAt}
+        saveFailed={saveFailed}
       />
       {scorecardOpen && isLiveScreen ? (
         <div className="relative">
@@ -117,8 +169,14 @@ export default function App() {
       <Modal open={confirmNewMatch} onClose={() => setConfirmNewMatch(false)} title="Start a new match?">
         <div className="flex flex-col gap-4">
           <p className="text-sm text-[var(--color-ink-dim)]">
-            This clears the current match completely. There's no way to get it back.
+            This clears the current match completely. Download a backup first if you want to keep it —
+            once discarded, there's no way to get it back.
           </p>
+          {hasScoringStarted && (
+            <SecondaryButton onClick={() => exportBackup(match)} className="flex items-center justify-center gap-2">
+              <Download size={16} /> Download backup first
+            </SecondaryButton>
+          )}
           <PrimaryButton
             className="bg-[var(--color-danger)] text-white"
             onClick={() => {

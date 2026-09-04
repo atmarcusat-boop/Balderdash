@@ -5,7 +5,7 @@ import { createMatch } from '../engine/matchEngine'
 
 const STORAGE_KEY = 'quockarr.match.v1'
 
-function loadMatch(): Match | null {
+function readStoredMatch(): Match | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
@@ -15,17 +15,24 @@ function loadMatch(): Match | null {
   }
 }
 
-function saveMatch(match: Match | null) {
+/** Returns whether the write actually succeeded — callers must not assume it did. */
+function writeStoredMatch(match: Match | null): boolean {
   try {
     if (match) localStorage.setItem(STORAGE_KEY, JSON.stringify(match))
     else localStorage.removeItem(STORAGE_KEY)
+    return true
   } catch {
-    // localStorage unavailable (private mode, quota) — scoring still works in-memory for the session.
+    // Private browsing, storage quota exceeded, or storage disabled entirely.
+    return false
   }
 }
 
 interface MatchStore {
   match: Match | null
+  /** Timestamp of the last successful write to local storage, or null if none yet. */
+  lastSavedAt: number | null
+  /** True if the most recent write to local storage failed — scoring continues in-memory only. */
+  saveFailed: boolean
   newMatch: (settings: MatchSettings, teamA: Player[], teamB: Player[]) => void
   startInnings: (
     battingTeam: 'A' | 'B',
@@ -36,13 +43,20 @@ interface MatchStore {
   recordBall: (ball: Omit<BallEvent, 'id' | 'inningsIndex'>) => void
   undo: () => void
   discardMatch: () => void
+  /** Replaces the current match wholesale — used to restore an exported backup. */
+  loadMatch: (match: Match) => void
 }
 
 function useMatchStoreImpl(): MatchStore {
-  const [match, setMatch] = useState<Match | null>(() => loadMatch())
+  const [match, setMatch] = useState<Match | null>(() => readStoredMatch())
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const [saveFailed, setSaveFailed] = useState(false)
 
   useEffect(() => {
-    saveMatch(match)
+    if (match === null && lastSavedAt === null) return
+    const ok = writeStoredMatch(match)
+    setSaveFailed(!ok)
+    if (ok) setLastSavedAt(Date.now())
   }, [match])
 
   const newMatch = useCallback((settings: MatchSettings, teamA: Player[], teamB: Player[]) => {
@@ -103,11 +117,26 @@ function useMatchStoreImpl(): MatchStore {
 
   const discardMatch = useCallback(() => {
     setMatch(null)
+    setLastSavedAt(null)
+  }, [])
+
+  const loadMatch = useCallback((imported: Match) => {
+    setMatch(imported)
   }, [])
 
   return useMemo(
-    () => ({ match, newMatch, startInnings, recordBall, undo, discardMatch }),
-    [match, newMatch, startInnings, recordBall, undo, discardMatch],
+    () => ({
+      match,
+      lastSavedAt,
+      saveFailed,
+      newMatch,
+      startInnings,
+      recordBall,
+      undo,
+      discardMatch,
+      loadMatch,
+    }),
+    [match, lastSavedAt, saveFailed, newMatch, startInnings, recordBall, undo, discardMatch, loadMatch],
   )
 }
 

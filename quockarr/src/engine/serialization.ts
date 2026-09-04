@@ -1,0 +1,158 @@
+import type { Match } from './types'
+import {
+  allPlayers,
+  computeMatchResult,
+  deriveInnings,
+  economy,
+  oversLabel,
+  squadSizeFor,
+  strikeRate,
+  type InningsState,
+} from './matchEngine'
+
+const FORMAT_VERSION = 1
+
+export interface MatchExport {
+  formatVersion: number
+  exportedAt: string
+  app: 'quockarr'
+  match: Match
+}
+
+const slug = (s: string) =>
+  s
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '') || 'team'
+
+export function matchFilename(match: Match, ext: string): string {
+  const date = new Date(match.createdAt).toISOString().slice(0, 10)
+  return `quockarr-${slug(match.settings.teamAName)}-vs-${slug(match.settings.teamBName)}-${date}.${ext}`
+}
+
+export function exportMatchJson(match: Match): string {
+  const payload: MatchExport = {
+    formatVersion: FORMAT_VERSION,
+    exportedAt: new Date().toISOString(),
+    app: 'quockarr',
+    match,
+  }
+  return JSON.stringify(payload, null, 2)
+}
+
+export function downloadTextFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+export class ImportError extends Error {}
+
+/** Parses and sanity-checks an exported backup before it's trusted as app state. */
+export function parseImportedMatch(raw: string): Match {
+  let data: unknown
+  try {
+    data = JSON.parse(raw)
+  } catch {
+    throw new ImportError("That file isn't valid JSON.")
+  }
+  const obj = data as Partial<MatchExport> & { match?: Partial<Match> }
+  const match = (obj.match ?? data) as Partial<Match> | undefined
+
+  if (
+    !match ||
+    typeof match !== 'object' ||
+    typeof match.id !== 'string' ||
+    !match.settings ||
+    !Array.isArray(match.teamA) ||
+    !Array.isArray(match.teamB) ||
+    !Array.isArray(match.innings)
+  ) {
+    throw new ImportError("This doesn't look like a Quockarr match backup.")
+  }
+
+  return match as Match
+}
+
+export function matchToText(match: Match): string {
+  const players = allPlayers(match)
+  const lines: string[] = []
+  const teamName = (side: 'A' | 'B') => (side === 'A' ? match.settings.teamAName : match.settings.teamBName)
+
+  lines.push(`${teamName('A')} vs ${teamName('B')}`)
+  lines.push(new Date(match.createdAt).toDateString())
+  lines.push(`${match.settings.oversLimit} overs a side`)
+  if (match.settings.tossWonBy && match.settings.tossChoice) {
+    lines.push(
+      `Toss: ${teamName(match.settings.tossWonBy)} won and chose to ${match.settings.tossChoice}`,
+    )
+  }
+  lines.push('')
+
+  const inningsStates: (InningsState | null)[] = match.innings.map((innings, i) => {
+    const target =
+      i === 1 && match.innings[0]
+        ? deriveInnings(match.innings[0], {
+            oversLimit: match.settings.oversLimit,
+            squadSize: squadSizeFor(match, match.innings[0].battingTeam),
+            players,
+          }).totalRuns + 1
+        : undefined
+    return deriveInnings(innings, {
+      oversLimit: match.settings.oversLimit,
+      squadSize: squadSizeFor(match, innings.battingTeam),
+      target,
+      players,
+    })
+  })
+
+  const result = computeMatchResult(match, inningsStates[0] ?? null, inningsStates[1] ?? null)
+  if (result) {
+    lines.push(`RESULT: ${result.text}`)
+    lines.push('')
+  }
+
+  inningsStates.forEach((state, i) => {
+    if (!state) return
+    lines.push(`--- Innings ${i + 1}: ${teamName(state.battingTeam)} ---`)
+    lines.push(`${state.totalRuns}/${state.totalWickets} (${oversLabel(state.legalBallsBowled)} overs)`)
+    lines.push('')
+    lines.push('Batting')
+    for (const id of state.battingOrder) {
+      const s = state.battingPlayers.get(id)!
+      const name = players.get(id)?.name ?? '?'
+      const how = s.out ? s.howOut : 'not out'
+      lines.push(
+        `  ${name.padEnd(18)} ${String(s.runs).padStart(3)} (${s.balls}b, ${s.fours}x4, ${s.sixes}x6, SR ${strikeRate(s.runs, s.balls).toFixed(1)})  ${how}`,
+      )
+    }
+    lines.push('')
+    lines.push(
+      `Extras: ${state.extras.total} (b ${state.extras.byes}, lb ${state.extras.legbyes}, wd ${state.extras.wides}, nb ${state.extras.noballs})`,
+    )
+    lines.push('')
+    lines.push('Bowling')
+    for (const id of state.bowlingOrder) {
+      const s = state.bowlingFigures.get(id)!
+      const name = players.get(id)?.name ?? '?'
+      lines.push(
+        `  ${name.padEnd(18)} ${oversLabel(s.legalBalls).padStart(5)} ov, ${s.maidens} m, ${s.runsConceded} r, ${s.wickets} w, econ ${economy(s.runsConceded, s.legalBalls).toFixed(2)}`,
+      )
+    }
+    if (state.fallOfWickets.length > 0) {
+      lines.push('')
+      lines.push('Fall of wickets: ' + state.fallOfWickets.map((f) => `${f.wicketNumber}-${f.runs}`).join(', '))
+    }
+    lines.push('')
+  })
+
+  lines.push(`Generated by Quockarr — ${new Date().toISOString()}`)
+  return lines.join('\n')
+}
