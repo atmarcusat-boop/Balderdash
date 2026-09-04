@@ -305,7 +305,7 @@ export function deriveInnings(innings: Innings, options: DeriveOptions): Innings
       dismissed.out = true
       dismissed.howOut = howOutLabel(ball.wicket.type, ball.bowlerId, ball.wicket.fielder, options.players)
       state.totalWickets += 1
-      if (ball.wicket.type !== 'runout') bowler.wickets += 1
+      if (ball.wicket.type !== 'runout' && ball.wicket.type !== 'retired') bowler.wickets += 1
       state.fallOfWickets.push({
         wicketNumber: state.totalWickets,
         runs: state.totalRuns,

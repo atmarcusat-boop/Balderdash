@@ -10,7 +10,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' (not 'autoUpdate'): a new deploy is fetched and cached in the
+      // background, but never force-reloads a page that's already open — an
+      // in-progress match must never get yanked out from under the scorer.
+      // It takes over next time the app is fully closed and reopened.
+      registerType: 'prompt',
       includeAssets: [
         'favicon-32.png',
         'favicon-64.png',

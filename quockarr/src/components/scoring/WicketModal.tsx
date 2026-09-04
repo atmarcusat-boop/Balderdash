@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { BallKind, Player, WicketType } from '../../engine/types'
 import type { InningsState } from '../../engine/matchEngine'
-import { defaultStrikeAfterWicket } from '../../engine/matchEngine'
+import { defaultStrikeAfterWicket, isLegalBall } from '../../engine/matchEngine'
 import { Modal } from '../shared/Modal'
 import { RunStepper } from '../shared/RunStepper'
 import { Chip, PrimaryButton } from '../shared/Buttons'
@@ -88,6 +88,19 @@ export function WicketModal({
   const needsFielder = dismissalType === 'caught' || dismissalType === 'stumped' || dismissalType === 'runout'
   const needsRuns = dismissalType === 'runout'
 
+  // If this delivery is also the 6th legal ball of the over, the engine applies
+  // the automatic end-of-over swap on top of the wicket placement — so the
+  // "who's on strike" default shown here must account for that too, or the
+  // pre-highlighted choice will be backwards for exactly the case (a wicket on
+  // the last ball of an over) the brief calls out as needing real confirmation.
+  const legalBallsThisOverSoFar = innings.currentOverBalls.filter((b) => isLegalBall(b.kind)).length
+  const willCompleteOver = isLegalBall(ballKind) && legalBallsThisOverSoFar === 5
+
+  const computeDefaultStrike = (incoming: string) => {
+    const placed = defaultStrikeAfterWicket(playerOutId, strikerId, nonStrikerId, incoming)
+    return willCompleteOver ? placed.nonStrikerId : placed.strikerId
+  }
+
   const goToIncoming = () => {
     if (willEndInnings || availableIncoming.length === 0) {
       confirm(undefined, undefined)
@@ -112,9 +125,7 @@ export function WicketModal({
     onConfirm(draft)
   }
 
-  const defaultStrike = incomingId
-    ? defaultStrikeAfterWicket(playerOutId, strikerId, nonStrikerId, incomingId).strikerId
-    : survivorId
+  const defaultStrike = incomingId ? computeDefaultStrike(incomingId) : survivorId
 
   return (
     <Modal open={open} onClose={onClose} title="Wicket">
@@ -180,7 +191,7 @@ export function WicketModal({
                   active={incomingId === p.id}
                   onClick={() => {
                     setIncomingId(p.id)
-                    setStrikeId(defaultStrikeAfterWicket(playerOutId, strikerId, nonStrikerId, p.id).strikerId)
+                    setStrikeId(computeDefaultStrike(p.id))
                   }}
                 >
                   {p.name}
@@ -191,6 +202,11 @@ export function WicketModal({
           {incomingId && (
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-[var(--color-ink-dim)]">On strike now</span>
+              {willCompleteOver && (
+                <p className="text-xs text-[var(--color-ink-faint)]">
+                  This was the over's last ball, so ends swap too — check this carefully.
+                </p>
+              )}
               <div className="flex gap-2">
                 <Chip active={strikeId === survivorId} onClick={() => setStrikeId(survivorId)} className="flex-1">
                   {players.get(survivorId)?.name}
