@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ClipboardList, Eye, Plus, Radio, Trophy } from 'lucide-react'
+import { ClipboardList, Eye, Plus, Radio } from 'lucide-react'
 import { useMatchStore } from './hooks/useMatchStore'
 import { useMatchDerived } from './hooks/useDerivedMatch'
 import { MatchSetupScreen } from './components/setup/MatchSetupScreen'
@@ -29,8 +29,8 @@ function AppHeader({
 }) {
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg)]/90 px-4 py-3 backdrop-blur">
-      <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
-        <Trophy size={18} />
+      <div className="flex items-center gap-2">
+        <img src="/badge.png" alt="" className="h-7 w-7 rounded-full" />
         <span className="text-base font-black tracking-tight text-[var(--color-ink)]">Quockarr</span>
       </div>
       <div className="flex items-center gap-2">

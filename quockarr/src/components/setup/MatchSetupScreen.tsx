@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Trophy } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import type { Player } from '../../engine/types'
 import { useMatchStore } from '../../hooks/useMatchStore'
 import { Card, SectionLabel } from '../shared/Card'
@@ -113,11 +113,9 @@ export function MatchSetupScreen() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <header className="flex flex-col items-center gap-1 pt-4 pb-2 text-center">
-        <div className="flex items-center gap-2 text-[var(--color-accent)]">
-          <Trophy size={22} />
-          <span className="text-2xl font-black tracking-tight text-[var(--color-ink)]">Quockarr</span>
-        </div>
+      <header className="flex flex-col items-center gap-2 pt-4 pb-2 text-center">
+        <img src="/crest.png" alt="" className="h-24 w-24 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]" />
+        <span className="text-2xl font-black tracking-tight text-[var(--color-ink)]">Quockarr</span>
         <p className="text-sm text-[var(--color-ink-dim)]">Set up a new match</p>
       </header>
 
