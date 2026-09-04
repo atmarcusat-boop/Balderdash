@@ -114,7 +114,11 @@ export function MatchSetupScreen() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <header className="flex flex-col items-center gap-2 pt-4 pb-2 text-center">
-        <img src="/crest.png" alt="" className="h-24 w-24 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]" />
+        <img
+          src={`${import.meta.env.BASE_URL}crest.png`}
+          alt=""
+          className="h-24 w-24 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]"
+        />
         <span className="text-2xl font-black tracking-tight text-[var(--color-ink)]">Quockarr</span>
         <p className="text-sm text-[var(--color-ink-dim)]">Set up a new match</p>
       </header>
