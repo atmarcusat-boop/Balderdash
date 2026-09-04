@@ -116,7 +116,7 @@ export function MatchSetupScreen() {
       <header className="flex flex-col items-center gap-1 pt-4 pb-2 text-center">
         <div className="flex items-center gap-2 text-[var(--color-accent)]">
           <Trophy size={22} />
-          <span className="text-2xl font-black tracking-tight text-[var(--color-ink)]">Quokarr</span>
+          <span className="text-2xl font-black tracking-tight text-[var(--color-ink)]">Quockarr</span>
         </div>
         <p className="text-sm text-[var(--color-ink-dim)]">Set up a new match</p>
       </header>

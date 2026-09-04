@@ -1,12 +1,12 @@
-name: Deploy Quokarr to GitHub Pages
+name: Deploy Quockarr to GitHub Pages
 
 on:
   push:
     branches:
       - claude/quokarr-cricket-scorer-l2ucuw
     paths:
-      - 'quokarr/**'
-      - '.github/workflows/deploy-quokarr.yml'
+      - 'quockarr/**'
+      - '.github/workflows/deploy-quockarr.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,21 +28,21 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: quokarr/package-lock.json
+          cache-dependency-path: quockarr/package-lock.json
 
       - name: Install dependencies
-        working-directory: quokarr
+        working-directory: quockarr
         run: npm ci
 
       - name: Build
-        working-directory: quokarr
+        working-directory: quockarr
         run: npm run build
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: quokarr/dist
+          path: quockarr/dist
 
   deploy:
     needs: build

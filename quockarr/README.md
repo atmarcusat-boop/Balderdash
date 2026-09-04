@@ -1,4 +1,4 @@
-# Quokarr
+# Quockarr
 
 Ball-by-ball cricket scoring for a single limited-overs match. Mobile-first,
 one-handed scoring, fully offline — no backend, no accounts. Match state is
@@ -35,5 +35,5 @@ npm run preview  # serve the production build locally
 
 ## Deployment
 
-Pushes to this branch that touch `quokarr/**` are built and published to
-GitHub Pages by `.github/workflows/deploy-quokarr.yml`.
+Pushes to this branch that touch `quockarr/**` are built and published to
+GitHub Pages by `.github/workflows/deploy-quockarr.yml`.

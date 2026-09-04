@@ -31,7 +31,7 @@ function AppHeader({
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg)]/90 px-4 py-3 backdrop-blur">
       <div className="flex items-center gap-1.5 text-[var(--color-accent)]">
         <Trophy size={18} />
-        <span className="text-base font-black tracking-tight text-[var(--color-ink)]">Quokarr</span>
+        <span className="text-base font-black tracking-tight text-[var(--color-ink)]">Quockarr</span>
       </div>
       <div className="flex items-center gap-2">
         {live && (

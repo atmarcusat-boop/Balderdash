@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type { BallEvent, Innings, Match, MatchSettings, Player } from '../engine/types'
 import { createMatch } from '../engine/matchEngine'
 
-const STORAGE_KEY = 'quokarr.match.v1'
+const STORAGE_KEY = 'quockarr.match.v1'
 
 function loadMatch(): Match | null {
   try {
